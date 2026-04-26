@@ -283,18 +283,20 @@ export function updateCharacter(
 
 /** Get the correct sprite frame for a character's current state and direction */
 export function getCharacterSprite(ch: Character, sprites: CharacterSprites): SpriteData {
+  // UP has no dedicated sprite — use the RIGHT-facing side view instead
+  const dir = ch.dir === Direction.UP ? Direction.RIGHT : ch.dir
   switch (ch.state) {
     case CharacterState.TYPE:
       if (isReadingTool(ch.currentTool)) {
-        return sprites.reading[ch.dir][ch.frame % 2]
+        return sprites.reading[dir][ch.frame % 2]
       }
-      return sprites.typing[ch.dir][ch.frame % 2]
+      return sprites.typing[dir][ch.frame % 2]
     case CharacterState.WALK:
-      return sprites.walk[ch.dir][ch.frame % 4]
+      return sprites.walk[dir][ch.frame % 4]
     case CharacterState.IDLE:
-      return sprites.walk[ch.dir][1]
+      return sprites.walk[dir][1]
     default:
-      return sprites.walk[ch.dir][1]
+      return sprites.walk[dir][1]
   }
 }
 

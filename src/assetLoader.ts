@@ -335,61 +335,61 @@ export interface LoadedCharacterSprites {
 
 
 /**
- * Load pre-colored character sprites from assets/characters/ (6 PNGs, each 112×96).
- * Each PNG has 3 direction rows (down, up, right) × 7 frames (16×32 each).
+ * Load character sprites from assets/characters/char_cc.png (336×144, 7 frames × 48px, 3 directions × 48px).
+ * The same sprite data is broadcast for all 6 palette slots so the webview palette index contract is preserved.
  */
 export async function loadCharacterSprites(
   assetsRoot: string,
 ): Promise<LoadedCharacterSprites | null> {
   try {
     const charDir = path.join(assetsRoot, 'assets', 'characters');
-    const characters: CharacterDirectionSprites[] = [];
+    const filePath = path.join(charDir, 'char_cc.png');
+    if (!fs.existsSync(filePath)) {
+      console.log(`[AssetLoader] No character sprite found at: ${filePath}`);
+      return null;
+    }
 
-    for (let ci = 0; ci < CHAR_COUNT; ci++) {
-      const filePath = path.join(charDir, `char_${ci}.png`);
-      if (!fs.existsSync(filePath)) {
-        console.log(`[AssetLoader] No character sprite found at: ${filePath}`);
-        return null;
-      }
+    const pngBuffer = fs.readFileSync(filePath);
+    const png = PNG.sync.read(pngBuffer);
 
-      const pngBuffer = fs.readFileSync(filePath);
-      const png = PNG.sync.read(pngBuffer);
+    const directions = CHARACTER_DIRECTIONS;
+    const charData: CharacterDirectionSprites = { down: [], up: [], right: [] };
 
-      const directions = CHARACTER_DIRECTIONS;
-      const charData: CharacterDirectionSprites = { down: [], up: [], right: [] };
+    for (let dirIdx = 0; dirIdx < directions.length; dirIdx++) {
+      const dir = directions[dirIdx];
+      const rowOffsetY = dirIdx * CHAR_FRAME_H;
+      const frames: string[][][] = [];
 
-      for (let dirIdx = 0; dirIdx < directions.length; dirIdx++) {
-        const dir = directions[dirIdx];
-        const rowOffsetY = dirIdx * CHAR_FRAME_H;
-        const frames: string[][][] = [];
-
-        for (let f = 0; f < CHAR_FRAMES_PER_ROW; f++) {
-          const sprite: string[][] = [];
-          const frameOffsetX = f * CHAR_FRAME_W;
-          for (let y = 0; y < CHAR_FRAME_H; y++) {
-            const row: string[] = [];
-            for (let x = 0; x < CHAR_FRAME_W; x++) {
-              const idx = (((rowOffsetY + y) * png.width) + (frameOffsetX + x)) * 4;
-              const r = png.data[idx];
-              const g = png.data[idx + 1];
-              const b = png.data[idx + 2];
-              const a = png.data[idx + 3];
-              if (a < PNG_ALPHA_THRESHOLD) {
-                row.push('');
-              } else {
-                row.push(`#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase());
-              }
+      for (let f = 0; f < CHAR_FRAMES_PER_ROW; f++) {
+        const sprite: string[][] = [];
+        const frameOffsetX = f * CHAR_FRAME_W;
+        for (let y = 0; y < CHAR_FRAME_H; y++) {
+          const row: string[] = [];
+          for (let x = 0; x < CHAR_FRAME_W; x++) {
+            const idx = (((rowOffsetY + y) * png.width) + (frameOffsetX + x)) * 4;
+            const r = png.data[idx];
+            const g = png.data[idx + 1];
+            const b = png.data[idx + 2];
+            const a = png.data[idx + 3];
+            if (a < PNG_ALPHA_THRESHOLD) {
+              row.push('');
+            } else {
+              row.push(`#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase());
             }
-            sprite.push(row);
           }
-          frames.push(sprite);
+          sprite.push(row);
         }
-        charData[dir] = frames;
+        frames.push(sprite);
       }
+      charData[dir] = frames;
+    }
+
+    const characters: CharacterDirectionSprites[] = [];
+    for (let ci = 0; ci < CHAR_COUNT; ci++) {
       characters.push(charData);
     }
 
-    console.log(`[AssetLoader] ✅ Loaded ${characters.length} character sprites (${CHAR_FRAMES_PER_ROW} frames × 3 directions each)`);
+    console.log(`[AssetLoader] ✅ Loaded char_cc sprite (${CHAR_FRAMES_PER_ROW} frames × 3 directions, ${CHAR_FRAME_W}×${CHAR_FRAME_H}px) → broadcast to ${CHAR_COUNT} palette slots`);
     return { characters };
   } catch (err) {
     console.error(`[AssetLoader] ❌ Error loading character sprites: ${err instanceof Error ? err.message : err}`);
