@@ -9,5 +9,6 @@ export {
   PC_SPRITE,
   LAMP_SPRITE,
   getCharacterSprites,
+  getNamedCharacterSprites,
 } from './spriteData.js'
 export type { CharacterSprites } from './spriteData.js'

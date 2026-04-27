@@ -6,7 +6,7 @@ import { migrateLayoutColors } from '../office/layout/layoutSerializer.js'
 import { buildDynamicCatalog } from '../office/layout/furnitureCatalog.js'
 import { setFloorSprites } from '../office/floorTiles.js'
 import { setWallSprites } from '../office/wallTiles.js'
-import { setCharacterTemplates } from '../office/sprites/spriteData.js'
+import { setCharacterTemplates, setNamedCharacterTemplates } from '../office/sprites/spriteData.js'
 import { vscode } from '../vscodeApi.js'
 import { playDoneSound, setSoundEnabled } from '../notificationSound.js'
 import type { AchievementNotification } from '../components/AchievementPopup.js'
@@ -395,6 +395,11 @@ export function useExtensionMessages(
         const characters = msg.characters as Array<{ down: string[][][]; up: string[][][]; right: string[][][] }>
         console.log(`[Webview] Received ${characters.length} pre-colored character sprites`)
         setCharacterTemplates(characters)
+        if (msg.namedCharacters) {
+          const named = msg.namedCharacters as Record<string, { down: string[][][]; up: string[][][]; right: string[][][] }>
+          console.log(`[Webview] Received ${Object.keys(named).length} named character sprites: ${Object.keys(named).join(', ')}`)
+          setNamedCharacterTemplates(named)
+        }
       } else if (msg.type === 'floorTilesLoaded') {
         const sprites = msg.sprites as string[][][]
         console.log(`[Webview] Received ${sprites.length} floor tile patterns`)

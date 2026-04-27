@@ -331,12 +331,48 @@ export interface CharacterDirectionSprites {
 export interface LoadedCharacterSprites {
   /** 6 pre-colored characters, each with 9 frames per direction */
   characters: CharacterDirectionSprites[]
+  /** Named character sprites keyed by lowercase name (e.g. "caine", "bubble") */
+  named: Record<string, CharacterDirectionSprites>
 }
 
+/** Parse a character sprite sheet PNG (336×144, 7 frames × 3 dirs) into directional frame arrays */
+function parseCharacterPng(pngBuffer: Buffer): CharacterDirectionSprites {
+  const png = PNG.sync.read(pngBuffer);
+  const charData: CharacterDirectionSprites = { down: [], up: [], right: [] };
+  for (let dirIdx = 0; dirIdx < CHARACTER_DIRECTIONS.length; dirIdx++) {
+    const dir = CHARACTER_DIRECTIONS[dirIdx];
+    const rowOffsetY = dirIdx * CHAR_FRAME_H;
+    const frames: string[][][] = [];
+    for (let f = 0; f < CHAR_FRAMES_PER_ROW; f++) {
+      const sprite: string[][] = [];
+      const frameOffsetX = f * CHAR_FRAME_W;
+      for (let y = 0; y < CHAR_FRAME_H; y++) {
+        const row: string[] = [];
+        for (let x = 0; x < CHAR_FRAME_W; x++) {
+          const idx = (((rowOffsetY + y) * png.width) + (frameOffsetX + x)) * 4;
+          const r = png.data[idx];
+          const g = png.data[idx + 1];
+          const b = png.data[idx + 2];
+          const a = png.data[idx + 3];
+          if (a < PNG_ALPHA_THRESHOLD) {
+            row.push('');
+          } else {
+            row.push(`#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase());
+          }
+        }
+        sprite.push(row);
+      }
+      frames.push(sprite);
+    }
+    charData[dir] = frames;
+  }
+  return charData;
+}
 
 /**
  * Load character sprites from assets/characters/char_cc.png (336×144, 7 frames × 48px, 3 directions × 48px).
  * The same sprite data is broadcast for all 6 palette slots so the webview palette index contract is preserved.
+ * Also loads any char_<name>.png files (where name is non-numeric and not 'cc') as named character sprites.
  */
 export async function loadCharacterSprites(
   assetsRoot: string,
@@ -349,48 +385,33 @@ export async function loadCharacterSprites(
       return null;
     }
 
-    const pngBuffer = fs.readFileSync(filePath);
-    const png = PNG.sync.read(pngBuffer);
-
-    const directions = CHARACTER_DIRECTIONS;
-    const charData: CharacterDirectionSprites = { down: [], up: [], right: [] };
-
-    for (let dirIdx = 0; dirIdx < directions.length; dirIdx++) {
-      const dir = directions[dirIdx];
-      const rowOffsetY = dirIdx * CHAR_FRAME_H;
-      const frames: string[][][] = [];
-
-      for (let f = 0; f < CHAR_FRAMES_PER_ROW; f++) {
-        const sprite: string[][] = [];
-        const frameOffsetX = f * CHAR_FRAME_W;
-        for (let y = 0; y < CHAR_FRAME_H; y++) {
-          const row: string[] = [];
-          for (let x = 0; x < CHAR_FRAME_W; x++) {
-            const idx = (((rowOffsetY + y) * png.width) + (frameOffsetX + x)) * 4;
-            const r = png.data[idx];
-            const g = png.data[idx + 1];
-            const b = png.data[idx + 2];
-            const a = png.data[idx + 3];
-            if (a < PNG_ALPHA_THRESHOLD) {
-              row.push('');
-            } else {
-              row.push(`#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase());
-            }
-          }
-          sprite.push(row);
-        }
-        frames.push(sprite);
-      }
-      charData[dir] = frames;
-    }
-
+    const charData = parseCharacterPng(fs.readFileSync(filePath));
     const characters: CharacterDirectionSprites[] = [];
     for (let ci = 0; ci < CHAR_COUNT; ci++) {
       characters.push(charData);
     }
-
     console.log(`[AssetLoader] ✅ Loaded char_cc sprite (${CHAR_FRAMES_PER_ROW} frames × 3 directions, ${CHAR_FRAME_W}×${CHAR_FRAME_H}px) → broadcast to ${CHAR_COUNT} palette slots`);
-    return { characters };
+
+    // Load named character sprites: char_<name>.png where name is not purely numeric and not 'cc'
+    const named: Record<string, CharacterDirectionSprites> = {};
+    if (fs.existsSync(charDir)) {
+      for (const file of fs.readdirSync(charDir)) {
+        if (!file.startsWith('char_') || !file.endsWith('.png')) { continue; }
+        const rawName = file.slice(5, -4); // strip 'char_' prefix and '.png' suffix
+        if (rawName === 'cc' || /^\d+$/.test(rawName)) { continue; }
+        try {
+          named[rawName.toLowerCase()] = parseCharacterPng(fs.readFileSync(path.join(charDir, file)));
+          console.log(`[AssetLoader]   ✓ Named sprite: ${file} → "${rawName.toLowerCase()}"`);
+        } catch (err) {
+          console.warn(`[AssetLoader]   ⚠️  Failed to load ${file}: ${err instanceof Error ? err.message : err}`);
+        }
+      }
+    }
+    if (Object.keys(named).length > 0) {
+      console.log(`[AssetLoader] ✅ Loaded ${Object.keys(named).length} named sprite(s): ${Object.keys(named).join(', ')}`);
+    }
+
+    return { characters, named };
   } catch (err) {
     console.error(`[AssetLoader] ❌ Error loading character sprites: ${err instanceof Error ? err.message : err}`);
     return null;
@@ -407,8 +428,9 @@ export function sendCharacterSpritesToWebview(
   webview.postMessage({
     type: 'characterSpritesLoaded',
     characters: charSprites.characters,
+    namedCharacters: charSprites.named,
   });
-  console.log(`📤 Sent ${charSprites.characters.length} character sprites to webview`);
+  console.log(`📤 Sent ${charSprites.characters.length} character sprites + ${Object.keys(charSprites.named).length} named sprites to webview`);
 }
 
 /**

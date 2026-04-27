@@ -1,7 +1,7 @@
 import { TileType, TILE_SIZE, CharacterState } from '../types.js'
 import type { TileType as TileTypeVal, FurnitureInstance, Character, SpriteData, Seat, FloorColor } from '../types.js'
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache.js'
-import { getCharacterSprites, BUBBLE_PERMISSION_SPRITE, BUBBLE_WAITING_SPRITE } from '../sprites/spriteData.js'
+import { getCharacterSprites, getNamedCharacterSprites, BUBBLE_PERMISSION_SPRITE, BUBBLE_WAITING_SPRITE } from '../sprites/spriteData.js'
 import { MOOD_HAPPY_SPRITE, MOOD_ERROR_SPRITE, MOOD_STRESSED_SPRITE } from '../sprites/moodSprites.js'
 import { getPetSprite, isPetFacingLeft } from './pets.js'
 import type { Pet } from './pets.js'
@@ -129,7 +129,7 @@ export function renderScene(
 
   // Characters
   for (const ch of characters) {
-    const sprites = getCharacterSprites(ch.palette, ch.hueShift)
+    const sprites = (ch.name ? getNamedCharacterSprites(ch.name) : null) ?? getCharacterSprites(ch.palette, ch.hueShift)
     const spriteData = getCharacterSprite(ch, sprites)
     const cached = getCachedSprite(spriteData, zoom)
     // Sitting offset: shift character down when seated so they visually sit in the chair
