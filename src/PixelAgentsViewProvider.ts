@@ -13,7 +13,7 @@ import {
 	getProjectDirPath,
 } from './agentManager.js';
 import { ensureProjectScan, setAchievementHooks } from './fileWatcher.js';
-import { loadFurnitureAssets, sendAssetsToWebview, loadFloorTiles, sendFloorTilesToWebview, loadWallTiles, sendWallTilesToWebview, loadCharacterSprites, sendCharacterSpritesToWebview, loadDefaultLayout } from './assetLoader.js';
+import { loadFurnitureAssets, sendAssetsToWebview, loadFloorTiles, sendFloorTilesToWebview, loadWallTiles, sendWallTilesToWebview, loadCharacterSprites, sendCharacterSpritesToWebview, loadStreamAvatarSprites, loadDefaultLayout } from './assetLoader.js';
 import { WORKSPACE_KEY_AGENT_SEATS, WORKSPACE_KEY_AGENT_NAMES, GLOBAL_KEY_SOUND_ENABLED, GLOBAL_KEY_ZOOM, GLOBAL_KEY_PETS_ENABLED, GLOBAL_KEY_PET_DATA } from './constants.js';
 import { AchievementManager, ACHIEVEMENTS } from './achievementManager.js';
 import type { AchievementHooks } from './transcriptParser.js';
@@ -218,11 +218,12 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 							// Load bundled default layout
 							this.defaultLayout = loadDefaultLayout(assetsRoot);
 
-							// Load character sprites
+							// Load character sprites + stream avatars
 							const charSprites = await loadCharacterSprites(assetsRoot);
+							const streamAvatars = await loadStreamAvatarSprites(assetsRoot);
 							if (charSprites && this.webview) {
 								console.log('[Extension] Character sprites loaded, sending to webview');
-								sendCharacterSpritesToWebview(this.webview, charSprites);
+								sendCharacterSpritesToWebview(this.webview, charSprites, streamAvatars);
 							}
 
 							// Load floor tiles
@@ -264,8 +265,9 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 								const distRoot = path.join(ep, 'dist');
 								this.defaultLayout = loadDefaultLayout(distRoot);
 								const cs = await loadCharacterSprites(distRoot);
+								const sa = await loadStreamAvatarSprites(distRoot);
 								if (cs && this.webview) {
-									sendCharacterSpritesToWebview(this.webview, cs);
+									sendCharacterSpritesToWebview(this.webview, cs, sa);
 								}
 								const ft = await loadFloorTiles(distRoot);
 								if (ft && this.webview) {

@@ -1,5 +1,6 @@
 import { TileType, TILE_SIZE, CharacterState } from '../types.js'
-import type { TileType as TileTypeVal, FurnitureInstance, Character, SpriteData, Seat, FloorColor } from '../types.js'
+import type { TileType as TileTypeVal, FurnitureInstance, Character, SpriteData, Seat, FloorColor, Minion } from '../types.js'
+import { getFrame as getAvatarFrame } from '../sprites/streamAvatarController.js'
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache.js'
 import { getCharacterSprites, getNamedCharacterSprites, BUBBLE_PERMISSION_SPRITE, BUBBLE_WAITING_SPRITE } from '../sprites/spriteData.js'
 import { MOOD_HAPPY_SPRITE, MOOD_ERROR_SPRITE, MOOD_STRESSED_SPRITE } from '../sprites/moodSprites.js'
@@ -111,6 +112,7 @@ export function renderScene(
   selectedAgentId: number | null,
   hoveredAgentId: number | null,
   pets?: Pet[],
+  minions?: Minion[],
 ): void {
   const drawables: ZDrawable[] = []
 
@@ -221,6 +223,26 @@ export function renderScene(
           },
         })
       }
+    }
+  }
+
+  // Minions
+  if (minions) {
+    for (const minion of minions) {
+      const animType = minion.state === 'fight' ? 'fight' : 'idle'
+      const spriteData = getAvatarFrame(minion.avatarKey, animType, minion.frame)
+      if (!spriteData) continue
+      const cached = getCachedSprite(spriteData, zoom)
+      const drawX = Math.round(offsetX + minion.x * zoom - cached.width / 2)
+      const drawY = Math.round(offsetY + minion.y * zoom - cached.height)
+      const minionZY = minion.y + TILE_SIZE / 2
+      const mDX = drawX
+      const mDY = drawY
+      const mCached = cached
+      drawables.push({
+        zY: minionZY,
+        draw: (c) => { c.drawImage(mCached, mDX, mDY) },
+      })
     }
   }
 
@@ -808,6 +830,7 @@ export function renderFrame(
   layoutCols?: number,
   layoutRows?: number,
   pets?: Pet[],
+  minions?: Minion[],
 ): { offsetX: number; offsetY: number } {
   // Clear
   ctx.clearRect(0, 0, canvasWidth, canvasHeight)
@@ -841,7 +864,7 @@ export function renderFrame(
   // Draw walls + furniture + characters (z-sorted)
   const selectedId = selection?.selectedAgentId ?? null
   const hoveredId = selection?.hoveredAgentId ?? null
-  renderScene(ctx, allFurniture, characters, offsetX, offsetY, zoom, selectedId, hoveredId, pets)
+  renderScene(ctx, allFurniture, characters, offsetX, offsetY, zoom, selectedId, hoveredId, pets, minions)
 
   // Character names (rendered after scene, before bubbles)
   renderCharacterNames(ctx, characters, offsetX, offsetY, zoom)

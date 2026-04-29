@@ -82,6 +82,7 @@ export function createCharacter(
     matrixEffectSeeds: [],
     moodType: null,
     moodTimer: 0,
+    fightTargetId: null,
   }
 }
 
@@ -101,13 +102,35 @@ export function updateCharacter(
         ch.frameTimer -= TYPE_FRAME_DURATION_SEC
         ch.frame = (ch.frame + 1) % 2
       }
+      // Agent just became active while resting at seat → switch to FIGHT
+      if (ch.isActive) {
+        ch.state = CharacterState.FIGHT
+        ch.frame = 0
+        ch.frameTimer = 0
+        break
+      }
       // If no longer active, stand up and start wandering (after seatTimer expires)
+      if (ch.seatTimer > 0) {
+        ch.seatTimer -= dt
+        break
+      }
+      ch.seatTimer = 0 // clear sentinel
+      ch.state = CharacterState.IDLE
+      ch.frame = 0
+      ch.frameTimer = 0
+      ch.wanderTimer = randomRange(WANDER_PAUSE_MIN_SEC, WANDER_PAUSE_MAX_SEC)
+      ch.wanderCount = 0
+      ch.wanderLimit = randomInt(WANDER_MOVES_BEFORE_REST_MIN, WANDER_MOVES_BEFORE_REST_MAX)
+      break
+    }
+
+    case CharacterState.FIGHT: {
+      if (ch.frameTimer >= WALK_FRAME_DURATION_SEC) {
+        ch.frameTimer -= WALK_FRAME_DURATION_SEC
+        ch.frame = (ch.frame + 1) % 4
+      }
       if (!ch.isActive) {
-        if (ch.seatTimer > 0) {
-          ch.seatTimer -= dt
-          break
-        }
-        ch.seatTimer = 0 // clear sentinel
+        ch.seatTimer = 0
         ch.state = CharacterState.IDLE
         ch.frame = 0
         ch.frameTimer = 0
@@ -141,8 +164,8 @@ export function updateCharacter(
             ch.frame = 0
             ch.frameTimer = 0
           } else {
-            // Already at seat or no path — sit down
-            ch.state = CharacterState.TYPE
+            // Already at seat — start fighting
+            ch.state = CharacterState.FIGHT
             ch.dir = seat.facingDir
             ch.frame = 0
             ch.frameTimer = 0
@@ -200,12 +223,12 @@ export function updateCharacter(
 
         if (ch.isActive) {
           if (!ch.seatId) {
-            // No seat — type in place
-            ch.state = CharacterState.TYPE
+            // No seat — fight in place
+            ch.state = CharacterState.FIGHT
           } else {
             const seat = seats.get(ch.seatId)
             if (seat && ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow) {
-              ch.state = CharacterState.TYPE
+              ch.state = CharacterState.FIGHT
               ch.dir = seat.facingDir
             } else {
               ch.state = CharacterState.IDLE
@@ -292,6 +315,7 @@ export function getCharacterSprite(ch: Character, sprites: CharacterSprites): Sp
       }
       return sprites.typing[dir][ch.frame % 2]
     case CharacterState.WALK:
+    case CharacterState.FIGHT:
       return sprites.walk[dir][ch.frame % 4]
     case CharacterState.IDLE:
       return sprites.walk[dir][1]

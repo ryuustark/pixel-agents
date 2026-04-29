@@ -7,6 +7,7 @@ import { buildDynamicCatalog } from '../office/layout/furnitureCatalog.js'
 import { setFloorSprites } from '../office/floorTiles.js'
 import { setWallSprites } from '../office/wallTiles.js'
 import { setCharacterTemplates, setNamedCharacterTemplates } from '../office/sprites/spriteData.js'
+import { loadStreamAvatars, getAvatarKeys, pickRandom } from '../office/sprites/streamAvatarController.js'
 import { vscode } from '../vscodeApi.js'
 import { playDoneSound, setSoundEnabled } from '../notificationSound.js'
 import type { AchievementNotification } from '../components/AchievementPopup.js'
@@ -110,10 +111,23 @@ export function useExtensionMessages(
 
   // Track whether initial layout has been loaded (ref to avoid re-render)
   const layoutReadyRef = useRef(false)
+  // Track whether stream avatars are loaded so we can init booths after both are ready
+  const streamAvatarsLoadedRef = useRef(false)
+  const layoutLoadedRef = useRef(false)
 
   useEffect(() => {
     // Buffer agents from existingAgents until layout is loaded
     let pendingAgents: Array<{ id: number; palette?: number; hueShift?: number; seatId?: string; name?: string }> = []
+
+    function tryInitBooths(): void {
+      if (!streamAvatarsLoadedRef.current || !layoutLoadedRef.current) return
+      const os = getOfficeState()
+      const keys = getAvatarKeys()
+      if (keys.length === 0) return
+      const key1 = pickRandom() ?? keys[0]
+      const key2 = keys.length > 1 ? (pickRandom() ?? keys[0]) : key1
+      os.initBooths(key1, key2)
+    }
 
     const handler = (e: MessageEvent) => {
       const msg = e.data
@@ -140,11 +154,13 @@ export function useExtensionMessages(
         }
         pendingAgents = []
         layoutReadyRef.current = true
+        layoutLoadedRef.current = true
         setLayoutReady(true)
         if (os.characters.size > 0) {
           saveAgentSeats(os)
           saveAgentNames(os)
         }
+        tryInitBooths()
       } else if (msg.type === 'agentCreated') {
         const id = msg.id as number
         const agentName = (msg.name as string) || ''
@@ -399,6 +415,13 @@ export function useExtensionMessages(
           const named = msg.namedCharacters as Record<string, { down: string[][][]; up: string[][][]; right: string[][][] }>
           console.log(`[Webview] Received ${Object.keys(named).length} named character sprites: ${Object.keys(named).join(', ')}`)
           setNamedCharacterTemplates(named)
+        }
+        if (msg.streamAvatars) {
+          const sa = msg.streamAvatars as Record<string, { rows: string[][][][]; frameW: number; frameH: number; cols: number }>
+          loadStreamAvatars(sa)
+          console.log(`[Webview] Loaded ${Object.keys(sa).length} stream avatar(s): ${Object.keys(sa).join(', ')}`)
+          streamAvatarsLoadedRef.current = true
+          tryInitBooths()
         }
       } else if (msg.type === 'floorTilesLoaded') {
         const sprites = msg.sprites as string[][][]

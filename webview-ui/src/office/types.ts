@@ -38,6 +38,7 @@ export const CharacterState = {
   IDLE: 'idle',
   WALK: 'walk',
   TYPE: 'type',
+  FIGHT: 'fight',
 } as const
 export type CharacterState = (typeof CharacterState)[keyof typeof CharacterState]
 
@@ -229,4 +230,31 @@ export interface Character {
   moodType: 'happy' | 'error' | 'stressed' | null
   /** Countdown timer for mood bubble display */
   moodTimer: number
+  /** Minion id this character is fighting (FIGHT state only), or null */
+  fightTargetId: string | null
+}
+
+export interface Minion {
+  id: string
+  boothId: string
+  avatarKey: string
+  state: 'idle' | 'fight'
+  col: number
+  row: number
+  x: number
+  y: number
+  dir: Direction
+  frame: number
+  frameTimer: number
+}
+
+export interface FightBooth {
+  id: string
+  color: 'red' | 'blue'
+  /** Seat uid of the chair in this booth */
+  agentSeatId: string
+  minionCol: number
+  minionRow: number
+  assignedAgentId: number | null
+  minionId: string
 }

@@ -124,6 +124,9 @@ export const PET_NAME_MAX_LENGTH = 12
 // ── Costume Panel ─────────────────────────────────────────────
 export const COSTUME_PREVIEW_ZOOM = 3
 
+// ── Arena / Minion ───────────────────────────────────────────
+export const MINION_IDLE_FRAME_DURATION_SEC = 0.5
+
 // ── Game Logic ───────────────────────────────────────────────
 export const MAX_DELTA_TIME_SEC = 0.1
 export const WAITING_BUBBLE_DURATION_SEC = 2.0

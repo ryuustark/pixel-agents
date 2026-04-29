@@ -418,19 +418,120 @@ export async function loadCharacterSprites(
   }
 }
 
+// ── Stream avatar loading ───────────────────────────────────
+
+export interface StreamAvatarData {
+  /** rows[rowIdx][frameIdx][y][x] = hex color or '' */
+  rows: string[][][][]
+  frameW: number
+  frameH: number
+  cols: number
+}
+
+/** Load stream avatar sprites: non-char_* PNGs from assets/characters/.
+ *  Auto-detects frame grid (prefers 4×5). Skips files that fail to parse. */
+export async function loadStreamAvatarSprites(
+  assetsRoot: string,
+): Promise<Record<string, StreamAvatarData>> {
+  const charDir = path.join(assetsRoot, 'assets', 'characters');
+  const result: Record<string, StreamAvatarData> = {};
+
+  if (!fs.existsSync(charDir)) {
+    return result;
+  }
+
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+
+  for (const file of fs.readdirSync(charDir)) {
+    if (!file.endsWith('.png')) { continue; }
+    if (file.startsWith('char_')) { continue; }
+
+    const filePath = path.join(charDir, file);
+    const key = file.slice(0, -4).toLowerCase().replace(/\s+/g, '_');
+
+    let png;
+    try {
+      png = PNG.sync.read(fs.readFileSync(filePath));
+    } catch (parseErr) {
+      console.warn(`[AssetLoader] ⚠️  Skipping ${file}: PNG parse failed (${parseErr instanceof Error ? parseErr.message : parseErr})`);
+      continue;
+    }
+
+    const { width, height } = png;
+
+    // Prefer 4 cols × 5 rows; fall back to GCD-based square frames
+    let frameW: number, frameH: number, cols: number, rows: number;
+    const PREFERRED_COLS = 4, PREFERRED_ROWS = 5;
+    if (width % PREFERRED_COLS === 0 && height % PREFERRED_ROWS === 0) {
+      frameW = width / PREFERRED_COLS;
+      frameH = height / PREFERRED_ROWS;
+      cols = PREFERRED_COLS;
+      rows = PREFERRED_ROWS;
+    } else {
+      const g = gcd(width, height);
+      frameW = g;
+      frameH = g;
+      cols = width / g;
+      rows = height / g;
+    }
+
+    if (frameW <= 0 || frameH <= 0 || width % frameW !== 0 || height % frameH !== 0) {
+      console.warn(`[AssetLoader] ⚠️  Skipping ${file}: cannot detect frame grid (${width}×${height})`);
+      continue;
+    }
+
+    const animRows: string[][][][] = [];
+    for (let rowIdx = 0; rowIdx < rows; rowIdx++) {
+      const frames: string[][][] = [];
+      for (let colIdx = 0; colIdx < cols; colIdx++) {
+        const sprite: string[][] = [];
+        for (let y = 0; y < frameH; y++) {
+          const row: string[] = [];
+          for (let x = 0; x < frameW; x++) {
+            const px = colIdx * frameW + x;
+            const py = rowIdx * frameH + y;
+            const idx = (py * width + px) * 4;
+            const rv = png.data[idx];
+            const gv = png.data[idx + 1];
+            const bv = png.data[idx + 2];
+            const av = png.data[idx + 3];
+            if (av < PNG_ALPHA_THRESHOLD) {
+              row.push('');
+            } else {
+              row.push(`#${rv.toString(16).padStart(2, '0')}${gv.toString(16).padStart(2, '0')}${bv.toString(16).padStart(2, '0')}`.toUpperCase());
+            }
+          }
+          sprite.push(row);
+        }
+        frames.push(sprite);
+      }
+      animRows.push(frames);
+    }
+
+    result[key] = { rows: animRows, frameW, frameH, cols };
+    console.log(`[AssetLoader]   ✓ Stream avatar: ${file} → "${key}" (${frameW}×${frameH}px, ${cols}×${rows} grid)`);
+  }
+
+  console.log(`[AssetLoader] ✅ Loaded ${Object.keys(result).length} stream avatar(s)${Object.keys(result).length > 0 ? ': ' + Object.keys(result).join(', ') : ''}`);
+  return result;
+}
+
 /**
  * Send character sprites to webview
  */
 export function sendCharacterSpritesToWebview(
   webview: vscode.Webview,
   charSprites: LoadedCharacterSprites,
+  streamAvatars?: Record<string, StreamAvatarData>,
 ): void {
   webview.postMessage({
     type: 'characterSpritesLoaded',
     characters: charSprites.characters,
     namedCharacters: charSprites.named,
+    streamAvatars: streamAvatars ?? null,
   });
-  console.log(`📤 Sent ${charSprites.characters.length} character sprites + ${Object.keys(charSprites.named).length} named sprites to webview`);
+  const streamCount = streamAvatars ? Object.keys(streamAvatars).length : 0;
+  console.log(`📤 Sent ${charSprites.characters.length} character sprites + ${Object.keys(charSprites.named).length} named sprites + ${streamCount} stream avatars to webview`);
 }
 
 /**
