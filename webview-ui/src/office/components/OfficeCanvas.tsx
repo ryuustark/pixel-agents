@@ -270,6 +270,7 @@ export function OfficeCanvas({ officeState, onClick, isEditMode, isSeatMode, isC
           officeState.getLayout().cols,
           officeState.getLayout().rows,
           officeState.petsEnabled ? officeState.pets : undefined,
+          officeState.getMinions(),
         )
         offsetRef.current = { x: offsetX, y: offsetY }
 

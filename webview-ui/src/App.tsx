@@ -21,6 +21,7 @@ import { PixelTextEditor } from './office/editor/PixelTextEditor.js'
 import { AchievementPopup } from './components/AchievementPopup.js'
 import { AchievementGallery } from './components/AchievementGallery.js'
 import { CostumePanel } from './components/CostumePanel.js'
+import { pickRandom, getAvatarKeys } from './office/sprites/streamAvatarController.js'
 
 // Game state lives outside React — updated imperatively by message handlers
 const officeStateRef = { current: null as OfficeState | null }
@@ -139,6 +140,13 @@ function App() {
 
   const handleToggleTaskPanel = useCallback(() => setIsTaskPanelOpen((prev) => !prev), [])
   const handleToggleUsagePanel = useCallback(() => setIsUsagePanelOpen((prev) => !prev), [])
+  const handleShuffle = useCallback(() => {
+    const keys = getAvatarKeys()
+    if (keys.length === 0) return
+    const key1 = pickRandom() ?? keys[0]
+    const key2 = keys.length > 1 ? (pickRandom() ?? keys[0]) : key1
+    getOfficeState().initBooths(key1, key2)
+  }, [])
 
   const handleToggleDebugMode = useCallback(() => setIsDebugMode((prev) => !prev), [])
   const handleOpenAchievements = useCallback(() => {
@@ -530,12 +538,32 @@ function App() {
         top: 10,
         right: 30,
         zIndex: 'var(--pixel-controls-z)' as unknown as number,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
         background: 'var(--pixel-bg)',
         border: '2px solid var(--pixel-border)',
         borderRadius: 0,
         padding: '4px 6px',
         boxShadow: 'var(--pixel-shadow)',
       }}>
+        <button
+          onClick={handleShuffle}
+          style={{
+            padding: '5px 10px',
+            fontSize: '24px',
+            color: 'var(--pixel-text)',
+            background: 'var(--pixel-btn-bg)',
+            border: '2px solid transparent',
+            borderRadius: 0,
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--pixel-btn-hover-bg)' }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--pixel-btn-bg)' }}
+          title="Shuffle enemy avatars"
+        >
+          Shuffle
+        </button>
         <button
           onClick={handleToggleUsagePanel}
           style={

@@ -331,70 +331,216 @@ export interface CharacterDirectionSprites {
 export interface LoadedCharacterSprites {
   /** 6 pre-colored characters, each with 9 frames per direction */
   characters: CharacterDirectionSprites[]
+  /** Named character sprites keyed by lowercase name (e.g. "caine", "bubble") */
+  named: Record<string, CharacterDirectionSprites>
 }
 
+/** Parse one 48×48 frame from a PNG at pixel offset (fx, fy) */
+function parseFrame(png: ReturnType<typeof PNG.sync.read>, fx: number, fy: number): string[][] {
+  const sprite: string[][] = [];
+  for (let y = 0; y < CHAR_FRAME_H; y++) {
+    const row: string[] = [];
+    for (let x = 0; x < CHAR_FRAME_W; x++) {
+      const px = fx + x;
+      const py = fy + y;
+      if (px >= png.width || py >= png.height) { row.push(''); continue; }
+      const idx = (py * png.width + px) * 4;
+      const a = png.data[idx + 3];
+      if (a < PNG_ALPHA_THRESHOLD) {
+        row.push('');
+      } else {
+        const r = png.data[idx];
+        const g = png.data[idx + 1];
+        const b = png.data[idx + 2];
+        row.push(`#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase());
+      }
+    }
+    sprite.push(row);
+  }
+  return sprite;
+}
 
 /**
- * Load pre-colored character sprites from assets/characters/ (6 PNGs, each 112×96).
- * Each PNG has 3 direction rows (down, up, right) × 7 frames (16×32 each).
+ * Parse a character sprite sheet PNG.
+ * - Standard (336×144): 7 cols × 3 rows (direction rows), 48×48 per frame
+ * - Circus (192×240): 4 cols × 5 rows (animation rows), 48×48 per frame
+ *   → all 20 frames stored flat in `down` (row-major order)
+ */
+function parseCharacterPng(pngBuffer: Buffer): CharacterDirectionSprites {
+  const png = PNG.sync.read(pngBuffer);
+
+  // Detect circus format: 4-col × 5-row layout
+  if (png.width === CHAR_FRAME_W * 4 && png.height === CHAR_FRAME_H * 5) {
+    const frames: string[][][] = [];
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 4; col++) {
+        frames.push(parseFrame(png, col * CHAR_FRAME_W, row * CHAR_FRAME_H));
+      }
+    }
+    return { down: frames, up: [], right: [] };
+  }
+
+  // Standard 3-direction sheet
+  const charData: CharacterDirectionSprites = { down: [], up: [], right: [] };
+  for (let dirIdx = 0; dirIdx < CHARACTER_DIRECTIONS.length; dirIdx++) {
+    const dir = CHARACTER_DIRECTIONS[dirIdx];
+    const rowOffsetY = dirIdx * CHAR_FRAME_H;
+    const frames: string[][][] = [];
+    for (let f = 0; f < CHAR_FRAMES_PER_ROW; f++) {
+      frames.push(parseFrame(png, f * CHAR_FRAME_W, rowOffsetY));
+    }
+    charData[dir] = frames;
+  }
+  return charData;
+}
+
+/**
+ * Load character sprites from assets/characters/char_cc.png (336×144, 7 frames × 48px, 3 directions × 48px).
+ * The same sprite data is broadcast for all 6 palette slots so the webview palette index contract is preserved.
+ * Also loads any char_<name>.png files (where name is non-numeric and not 'cc') as named character sprites.
  */
 export async function loadCharacterSprites(
   assetsRoot: string,
 ): Promise<LoadedCharacterSprites | null> {
   try {
     const charDir = path.join(assetsRoot, 'assets', 'characters');
-    const characters: CharacterDirectionSprites[] = [];
-
-    for (let ci = 0; ci < CHAR_COUNT; ci++) {
-      const filePath = path.join(charDir, `char_${ci}.png`);
-      if (!fs.existsSync(filePath)) {
-        console.log(`[AssetLoader] No character sprite found at: ${filePath}`);
-        return null;
-      }
-
-      const pngBuffer = fs.readFileSync(filePath);
-      const png = PNG.sync.read(pngBuffer);
-
-      const directions = CHARACTER_DIRECTIONS;
-      const charData: CharacterDirectionSprites = { down: [], up: [], right: [] };
-
-      for (let dirIdx = 0; dirIdx < directions.length; dirIdx++) {
-        const dir = directions[dirIdx];
-        const rowOffsetY = dirIdx * CHAR_FRAME_H;
-        const frames: string[][][] = [];
-
-        for (let f = 0; f < CHAR_FRAMES_PER_ROW; f++) {
-          const sprite: string[][] = [];
-          const frameOffsetX = f * CHAR_FRAME_W;
-          for (let y = 0; y < CHAR_FRAME_H; y++) {
-            const row: string[] = [];
-            for (let x = 0; x < CHAR_FRAME_W; x++) {
-              const idx = (((rowOffsetY + y) * png.width) + (frameOffsetX + x)) * 4;
-              const r = png.data[idx];
-              const g = png.data[idx + 1];
-              const b = png.data[idx + 2];
-              const a = png.data[idx + 3];
-              if (a < PNG_ALPHA_THRESHOLD) {
-                row.push('');
-              } else {
-                row.push(`#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase());
-              }
-            }
-            sprite.push(row);
-          }
-          frames.push(sprite);
-        }
-        charData[dir] = frames;
-      }
-      characters.push(charData);
+    const filePath = path.join(charDir, 'char_cc.png');
+    if (!fs.existsSync(filePath)) {
+      console.log(`[AssetLoader] No character sprite found at: ${filePath}`);
+      return null;
     }
 
-    console.log(`[AssetLoader] ✅ Loaded ${characters.length} character sprites (${CHAR_FRAMES_PER_ROW} frames × 3 directions each)`);
-    return { characters };
+    const charData = parseCharacterPng(fs.readFileSync(filePath));
+    const characters: CharacterDirectionSprites[] = [];
+    for (let ci = 0; ci < CHAR_COUNT; ci++) {
+      characters.push(charData);
+    }
+    console.log(`[AssetLoader] ✅ Loaded char_cc sprite (${CHAR_FRAMES_PER_ROW} frames × 3 directions, ${CHAR_FRAME_W}×${CHAR_FRAME_H}px) → broadcast to ${CHAR_COUNT} palette slots`);
+
+    // Load named character sprites: char_<name>.png where name is not purely numeric and not 'cc'
+    const named: Record<string, CharacterDirectionSprites> = {};
+    if (fs.existsSync(charDir)) {
+      for (const file of fs.readdirSync(charDir)) {
+        if (!file.startsWith('char_') || !file.endsWith('.png')) { continue; }
+        const rawName = file.slice(5, -4); // strip 'char_' prefix and '.png' suffix
+        if (rawName === 'cc' || /^\d+$/.test(rawName)) { continue; }
+        try {
+          named[rawName.toLowerCase()] = parseCharacterPng(fs.readFileSync(path.join(charDir, file)));
+          console.log(`[AssetLoader]   ✓ Named sprite: ${file} → "${rawName.toLowerCase()}"`);
+        } catch (err) {
+          console.warn(`[AssetLoader]   ⚠️  Failed to load ${file}: ${err instanceof Error ? err.message : err}`);
+        }
+      }
+    }
+    if (Object.keys(named).length > 0) {
+      console.log(`[AssetLoader] ✅ Loaded ${Object.keys(named).length} named sprite(s): ${Object.keys(named).join(', ')}`);
+    }
+
+    return { characters, named };
   } catch (err) {
     console.error(`[AssetLoader] ❌ Error loading character sprites: ${err instanceof Error ? err.message : err}`);
     return null;
   }
+}
+
+// ── Stream avatar loading ───────────────────────────────────
+
+export interface StreamAvatarData {
+  /** rows[rowIdx][frameIdx][y][x] = hex color or '' */
+  rows: string[][][][]
+  frameW: number
+  frameH: number
+  cols: number
+}
+
+/** Load stream avatar sprites: non-char_* PNGs from assets/characters/.
+ *  Auto-detects frame grid (prefers 4×5). Skips files that fail to parse. */
+export async function loadStreamAvatarSprites(
+  assetsRoot: string,
+): Promise<Record<string, StreamAvatarData>> {
+  const charDir = path.join(assetsRoot, 'assets', 'characters');
+  const result: Record<string, StreamAvatarData> = {};
+
+  if (!fs.existsSync(charDir)) {
+    return result;
+  }
+
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+
+  for (const file of fs.readdirSync(charDir)) {
+    if (!file.endsWith('.png')) { continue; }
+    if (file.startsWith('char_')) { continue; }
+
+    const filePath = path.join(charDir, file);
+    const key = file.slice(0, -4).toLowerCase().replace(/\s+/g, '_');
+
+    let png;
+    try {
+      png = PNG.sync.read(fs.readFileSync(filePath));
+    } catch (parseErr) {
+      console.warn(`[AssetLoader] ⚠️  Skipping ${file}: PNG parse failed (${parseErr instanceof Error ? parseErr.message : parseErr})`);
+      continue;
+    }
+
+    const { width, height } = png;
+
+    // Prefer 4 cols × 5 rows; fall back to GCD-based square frames
+    let frameW: number, frameH: number, cols: number, rows: number;
+    const PREFERRED_COLS = 4, PREFERRED_ROWS = 5;
+    if (width % PREFERRED_COLS === 0 && height % PREFERRED_ROWS === 0) {
+      frameW = width / PREFERRED_COLS;
+      frameH = height / PREFERRED_ROWS;
+      cols = PREFERRED_COLS;
+      rows = PREFERRED_ROWS;
+    } else {
+      const g = gcd(width, height);
+      frameW = g;
+      frameH = g;
+      cols = width / g;
+      rows = height / g;
+    }
+
+    if (frameW <= 0 || frameH <= 0 || width % frameW !== 0 || height % frameH !== 0) {
+      console.warn(`[AssetLoader] ⚠️  Skipping ${file}: cannot detect frame grid (${width}×${height})`);
+      continue;
+    }
+
+    const animRows: string[][][][] = [];
+    for (let rowIdx = 0; rowIdx < rows; rowIdx++) {
+      const frames: string[][][] = [];
+      for (let colIdx = 0; colIdx < cols; colIdx++) {
+        const sprite: string[][] = [];
+        let hasOpaque = false;
+        for (let y = 0; y < frameH; y++) {
+          const row: string[] = [];
+          for (let x = 0; x < frameW; x++) {
+            const px = colIdx * frameW + x;
+            const py = rowIdx * frameH + y;
+            const idx = (py * width + px) * 4;
+            const rv = png.data[idx];
+            const gv = png.data[idx + 1];
+            const bv = png.data[idx + 2];
+            const av = png.data[idx + 3];
+            if (av < PNG_ALPHA_THRESHOLD) {
+              row.push('');
+            } else {
+              hasOpaque = true;
+              row.push(`#${rv.toString(16).padStart(2, '0')}${gv.toString(16).padStart(2, '0')}${bv.toString(16).padStart(2, '0')}`.toUpperCase());
+            }
+          }
+          sprite.push(row);
+        }
+        if (hasOpaque) frames.push(sprite);
+      }
+      animRows.push(frames);
+    }
+
+    result[key] = { rows: animRows, frameW, frameH, cols };
+    console.log(`[AssetLoader]   ✓ Stream avatar: ${file} → "${key}" (${frameW}×${frameH}px, ${cols}×${rows} grid)`);
+  }
+
+  console.log(`[AssetLoader] ✅ Loaded ${Object.keys(result).length} stream avatar(s)${Object.keys(result).length > 0 ? ': ' + Object.keys(result).join(', ') : ''}`);
+  return result;
 }
 
 /**
@@ -403,12 +549,16 @@ export async function loadCharacterSprites(
 export function sendCharacterSpritesToWebview(
   webview: vscode.Webview,
   charSprites: LoadedCharacterSprites,
+  streamAvatars?: Record<string, StreamAvatarData>,
 ): void {
   webview.postMessage({
     type: 'characterSpritesLoaded',
     characters: charSprites.characters,
+    namedCharacters: charSprites.named,
+    streamAvatars: streamAvatars ?? null,
   });
-  console.log(`📤 Sent ${charSprites.characters.length} character sprites to webview`);
+  const streamCount = streamAvatars ? Object.keys(streamAvatars).length : 0;
+  console.log(`📤 Sent ${charSprites.characters.length} character sprites + ${Object.keys(charSprites.named).length} named sprites + ${streamCount} stream avatars to webview`);
 }
 
 /**

@@ -13,8 +13,10 @@ import {
   CHARACTER_HIT_HALF_WIDTH,
   CHARACTER_HIT_HEIGHT,
   MOOD_BUBBLE_DURATION_SEC,
+  WALK_FRAME_DURATION_SEC,
+  MINION_IDLE_FRAME_DURATION_SEC,
 } from '../../constants.js'
-import type { Character, Seat, FurnitureInstance, TileType as TileTypeVal, OfficeLayout, PlacedFurniture } from '../types.js'
+import type { Character, Seat, FurnitureInstance, TileType as TileTypeVal, OfficeLayout, PlacedFurniture, Minion, FightBooth } from '../types.js'
 import { createCharacter, updateCharacter } from './characters.js'
 import { createPet, updatePet, updatePetConfig } from './pets.js'
 import type { Pet } from './pets.js'
@@ -49,6 +51,8 @@ export class OfficeState {
   private nextSubagentId = -1
   pets: Pet[] = []
   petsEnabled = true
+  booths: Map<string, FightBooth> = new Map()
+  minions: Map<string, Minion> = new Map()
 
   constructor(layout?: OfficeLayout) {
     this.layout = layout || createDefaultLayout()
@@ -304,6 +308,76 @@ export class OfficeState {
     return null
   }
 
+  /** Initialise the two fight booths and their minions. Call after layout + stream avatars are loaded. */
+  initBooths(avatarKey1: string, avatarKey2: string): void {
+    this.booths.clear()
+    this.minions.clear()
+
+    const RED_SEAT_ID = 'booth-red-chair'
+    const BLUE_SEAT_ID = 'booth-blue-chair'
+
+    if (!this.seats.has(RED_SEAT_ID) || !this.seats.has(BLUE_SEAT_ID)) {
+      console.warn('[OfficeState] Booth seats not found — initBooths skipped')
+      return
+    }
+
+    const redMinion: Minion = {
+      id: 'minion-red', boothId: 'red', avatarKey: avatarKey1,
+      state: 'idle', col: 4, row: 5,
+      x: 4 * TILE_SIZE + TILE_SIZE / 2, y: 5 * TILE_SIZE + TILE_SIZE / 2,
+      dir: Direction.UP, frame: 0, frameTimer: 0,
+    }
+    const blueMinion: Minion = {
+      id: 'minion-blue', boothId: 'blue', avatarKey: avatarKey2,
+      state: 'idle', col: 15, row: 5,
+      x: 15 * TILE_SIZE + TILE_SIZE / 2, y: 5 * TILE_SIZE + TILE_SIZE / 2,
+      dir: Direction.UP, frame: 0, frameTimer: 0,
+    }
+
+    this.booths.set('red', {
+      id: 'red', color: 'red', agentSeatId: RED_SEAT_ID,
+      minionCol: 4, minionRow: 5, assignedAgentId: null, minionId: 'minion-red',
+    })
+    this.booths.set('blue', {
+      id: 'blue', color: 'blue', agentSeatId: BLUE_SEAT_ID,
+      minionCol: 15, minionRow: 5, assignedAgentId: null, minionId: 'minion-blue',
+    })
+    this.minions.set('minion-red', redMinion)
+    this.minions.set('minion-blue', blueMinion)
+  }
+
+  /** Update minion state when an agent becomes active or idle */
+  private updateMinionForAgent(agentId: number, active: boolean): void {
+    const ch = this.characters.get(agentId)
+    if (!ch || !ch.seatId) return
+    for (const booth of this.booths.values()) {
+      if (booth.agentSeatId === ch.seatId) {
+        const minion = this.minions.get(booth.minionId)
+        if (minion) {
+          minion.state = active ? 'fight' : 'idle'
+          minion.frame = 0
+          minion.frameTimer = 0
+        }
+        break
+      }
+    }
+  }
+
+  updateMinions(dt: number): void {
+    for (const minion of this.minions.values()) {
+      minion.frameTimer += dt
+      const duration = minion.state === 'fight' ? WALK_FRAME_DURATION_SEC : MINION_IDLE_FRAME_DURATION_SEC
+      if (minion.frameTimer >= duration) {
+        minion.frameTimer -= duration
+        minion.frame = (minion.frame + 1) % 4
+      }
+    }
+  }
+
+  getMinions(): Minion[] {
+    return Array.from(this.minions.values())
+  }
+
   /** Reassign an agent from their current seat to a new seat */
   reassignSeat(agentId: number, seatId: string): void {
     const ch = this.characters.get(agentId)
@@ -330,7 +404,7 @@ export class OfficeState {
       ch.frameTimer = 0
     } else {
       // Already at seat or no path — sit down
-      ch.state = CharacterState.TYPE
+      ch.state = CharacterState.SIT
       ch.dir = seat.facingDir
       ch.frame = 0
       ch.frameTimer = 0
@@ -357,7 +431,7 @@ export class OfficeState {
       ch.frameTimer = 0
     } else {
       // Already at seat — sit down
-      ch.state = CharacterState.TYPE
+      ch.state = CharacterState.SIT
       ch.dir = seat.facingDir
       ch.frame = 0
       ch.frameTimer = 0
@@ -536,6 +610,7 @@ export class OfficeState {
         ch.path = []
         ch.moveProgress = 0
       }
+      this.updateMinionForAgent(id, active)
       this.rebuildFurnitureInstances()
     }
   }
@@ -716,6 +791,9 @@ export class OfficeState {
         updatePet(pet, dt, this.walkableTiles, this.tileMap, this.blockedTiles, this.characters)
       }
     }
+
+    // Update minions
+    this.updateMinions(dt)
   }
 
   getCharacters(): Character[] {
@@ -762,7 +840,7 @@ export class OfficeState {
       if (ch.matrixEffect === 'despawn') continue
       // Character sprite is 16x24, anchored bottom-center
       // Apply sitting offset to match visual position
-      const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
+      const sittingOffset = ch.state === CharacterState.SIT ? CHARACTER_SITTING_OFFSET_PX : 0
       const anchorY = ch.y + sittingOffset
       const left = ch.x - CHARACTER_HIT_HALF_WIDTH
       const right = ch.x + CHARACTER_HIT_HALF_WIDTH

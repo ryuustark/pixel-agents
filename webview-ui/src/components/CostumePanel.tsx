@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { getCharacterSprites } from '../office/sprites/spriteData.js'
 import { getCachedSprite } from '../office/sprites/spriteCache.js'
-import { Direction } from '../office/types.js'
 import { COSTUME_PREVIEW_ZOOM, PALETTE_COUNT } from '../constants.js'
 
 interface CostumePanelProps {
@@ -75,8 +74,8 @@ function CharacterPreview({ palette, hueShift, isSelected, onClick }: {
     if (!ctx) return
 
     const sprites = getCharacterSprites(palette, hueShift)
-    // walk[DOWN][1] = standing idle pose
-    const sprite = sprites.walk[Direction.DOWN][1]
+    // idle[0] = front-facing standing pose
+    const sprite = sprites.idle[0]
     const cached = getCachedSprite(sprite, COSTUME_PREVIEW_ZOOM)
 
     canvas.width = cached.width

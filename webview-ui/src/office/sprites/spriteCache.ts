@@ -2,6 +2,40 @@ import type { SpriteData } from '../types.js'
 
 const zoomCaches = new Map<number, WeakMap<SpriteData, HTMLCanvasElement>>()
 
+// ── Hit flash sprite ──────────────────────────────────────────────
+
+const hitFlashCache = new Map<number, WeakMap<SpriteData, HTMLCanvasElement>>()
+
+/** Solid red silhouette canvas used for the receive-hit flash effect. */
+export function getHitFlashSprite(sprite: SpriteData, zoom: number): HTMLCanvasElement {
+  let cache = hitFlashCache.get(zoom)
+  if (!cache) {
+    cache = new WeakMap()
+    hitFlashCache.set(zoom, cache)
+  }
+  const cached = cache.get(sprite)
+  if (cached) return cached
+
+  const rows = sprite.length
+  const cols = sprite[0].length
+  const canvas = document.createElement('canvas')
+  canvas.width = cols * zoom
+  canvas.height = rows * zoom
+  const ctx = canvas.getContext('2d')!
+  ctx.imageSmoothingEnabled = false
+
+  ctx.fillStyle = '#FF3333'
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (sprite[r][c] === '') continue
+      ctx.fillRect(c * zoom, r * zoom, zoom, zoom)
+    }
+  }
+
+  cache.set(sprite, canvas)
+  return canvas
+}
+
 // ── Outline sprite generation ─────────────────────────────────
 
 const outlineCache = new WeakMap<SpriteData, SpriteData>()

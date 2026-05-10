@@ -1,7 +1,8 @@
-import { TileType, TILE_SIZE, CharacterState } from '../types.js'
-import type { TileType as TileTypeVal, FurnitureInstance, Character, SpriteData, Seat, FloorColor } from '../types.js'
-import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache.js'
-import { getCharacterSprites, BUBBLE_PERMISSION_SPRITE, BUBBLE_WAITING_SPRITE } from '../sprites/spriteData.js'
+import { TileType, TILE_SIZE, CharacterState, Direction } from '../types.js'
+import type { TileType as TileTypeVal, FurnitureInstance, Character, SpriteData, Seat, FloorColor, Minion } from '../types.js'
+import { getFrame as getAvatarFrame } from '../sprites/streamAvatarController.js'
+import { getCachedSprite, getOutlineSprite, getHitFlashSprite } from '../sprites/spriteCache.js'
+import { getCharacterSprites, getNamedCharacterSprites, BUBBLE_PERMISSION_SPRITE, BUBBLE_WAITING_SPRITE } from '../sprites/spriteData.js'
 import { MOOD_HAPPY_SPRITE, MOOD_ERROR_SPRITE, MOOD_STRESSED_SPRITE } from '../sprites/moodSprites.js'
 import { getPetSprite, isPetFacingLeft } from './pets.js'
 import type { Pet } from './pets.js'
@@ -25,6 +26,7 @@ import {
   BUTTON_LINE_WIDTH_MIN,
   BUTTON_LINE_WIDTH_ZOOM_FACTOR,
   BUBBLE_FADE_DURATION_SEC,
+  HIT_FLASH_DURATION_SEC,
   BUBBLE_SITTING_OFFSET_PX,
   BUBBLE_VERTICAL_OFFSET_PX,
   MOOD_BUBBLE_FADE_DURATION_SEC,
@@ -111,6 +113,7 @@ export function renderScene(
   selectedAgentId: number | null,
   hoveredAgentId: number | null,
   pets?: Pet[],
+  minions?: Minion[],
 ): void {
   const drawables: ZDrawable[] = []
 
@@ -129,13 +132,19 @@ export function renderScene(
 
   // Characters
   for (const ch of characters) {
-    const sprites = getCharacterSprites(ch.palette, ch.hueShift)
+    const sprites = (ch.name ? getNamedCharacterSprites(ch.name) : null) ?? getCharacterSprites(ch.palette, ch.hueShift)
     const spriteData = getCharacterSprite(ch, sprites)
     const cached = getCachedSprite(spriteData, zoom)
+
     // Sitting offset: shift character down when seated so they visually sit in the chair
-    const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
+    const sittingOffset = ch.state === CharacterState.SIT ? CHARACTER_SITTING_OFFSET_PX : 0
+    // Flip side-facing sprites horizontally when direction is LEFT
+    const flipH = ch.dir === Direction.LEFT
+    // Knockback offset during hit effect
+    const knockbackOffsetPx = ch.hitTimer > 0 ? ch.hitKnockbackX * zoom : 0
+
     // Anchor at bottom-center of character — round to integer device pixels
-    const drawX = Math.round(offsetX + ch.x * zoom - cached.width / 2)
+    const drawX = Math.round(offsetX + ch.x * zoom - cached.width / 2) + knockbackOffsetPx
     const drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - cached.height)
 
     // Sort characters by bottom of their tile (not center) so they render
@@ -172,16 +181,47 @@ export function renderScene(
         draw: (c) => {
           c.save()
           c.globalAlpha = outlineAlpha
-          c.drawImage(outlineCached, olDrawX, olDrawY)
+          if (flipH) {
+            c.translate(olDrawX + outlineCached.width, olDrawY)
+            c.scale(-1, 1)
+            c.drawImage(outlineCached, 0, 0)
+          } else {
+            c.drawImage(outlineCached, olDrawX, olDrawY)
+          }
           c.restore()
         },
       })
     }
 
+    // Hit flash overlay — red silhouette fading out over hitTimer
+    const hasHit = ch.hitTimer > 0
+    const hitFlashAlpha = hasHit ? ch.hitTimer / HIT_FLASH_DURATION_SEC : 0
+
+    const cDX = drawX
+    const cDY = drawY
+    const cCached = cached
+    const cFlipH = flipH
     drawables.push({
       zY: charZY,
       draw: (c) => {
-        c.drawImage(cached, drawX, drawY)
+        c.save()
+        if (cFlipH) {
+          c.translate(cDX + cCached.width, cDY)
+          c.scale(-1, 1)
+          c.drawImage(cCached, 0, 0)
+        } else {
+          c.drawImage(cCached, cDX, cDY)
+        }
+        if (hasHit && hitFlashAlpha > 0) {
+          const flashCanvas = getHitFlashSprite(spriteData, zoom)
+          c.globalAlpha = hitFlashAlpha * 0.7
+          if (cFlipH) {
+            c.drawImage(flashCanvas, 0, 0)
+          } else {
+            c.drawImage(flashCanvas, cDX, cDY)
+          }
+        }
+        c.restore()
       },
     })
   }
@@ -221,6 +261,26 @@ export function renderScene(
           },
         })
       }
+    }
+  }
+
+  // Minions
+  if (minions) {
+    for (const minion of minions) {
+      const animType = minion.state === 'fight' ? 'fight' : 'idle'
+      const spriteData = getAvatarFrame(minion.avatarKey, animType, minion.frame)
+      if (!spriteData) continue
+      const cached = getCachedSprite(spriteData, zoom)
+      const drawX = Math.round(offsetX + minion.x * zoom - cached.width / 2)
+      const drawY = Math.round(offsetY + minion.y * zoom - cached.height)
+      const minionZY = minion.y + TILE_SIZE / 2
+      const mDX = drawX
+      const mDY = drawY
+      const mCached = cached
+      drawables.push({
+        zY: minionZY,
+        draw: (c) => { c.drawImage(mCached, mDX, mDY) },
+      })
     }
   }
 
@@ -603,7 +663,7 @@ export function renderCharacterNames(
   for (const ch of characters) {
     if (!ch.name || ch.matrixEffect === 'despawn') continue
 
-    const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
+    const sittingOffset = ch.state === CharacterState.SIT ? CHARACTER_SITTING_OFFSET_PX : 0
     // Position name below the character sprite (bottom-center anchor + some gap)
     const nameX = Math.round(offsetX + ch.x * zoom)
     const nameY = Math.round(offsetY + (ch.y + sittingOffset) * zoom + 2 * zoom)
@@ -687,7 +747,7 @@ export function renderBubbles(
     // Position: centered above the character's head
     // Character is anchored bottom-center at (ch.x, ch.y), sprite is 16x24
     // Place bubble above head with a small gap; follow sitting offset
-    const sittingOff = ch.state === CharacterState.TYPE ? BUBBLE_SITTING_OFFSET_PX : 0
+    const sittingOff = ch.state === CharacterState.SIT ? BUBBLE_SITTING_OFFSET_PX : 0
     const bubbleX = Math.round(offsetX + ch.x * zoom - cached.width / 2)
     const bubbleY = Math.round(offsetY + (ch.y + sittingOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - cached.height - 1 * zoom)
 
@@ -727,7 +787,7 @@ export function renderMoodBubbles(
     }
 
     const cached = getCachedSprite(sprite, zoom)
-    const sittingOff = ch.state === CharacterState.TYPE ? BUBBLE_SITTING_OFFSET_PX : 0
+    const sittingOff = ch.state === CharacterState.SIT ? BUBBLE_SITTING_OFFSET_PX : 0
     const bubbleX = Math.round(offsetX + ch.x * zoom - cached.width / 2)
     const bubbleY = Math.round(offsetY + (ch.y + sittingOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - cached.height - 1 * zoom)
 
@@ -808,6 +868,7 @@ export function renderFrame(
   layoutCols?: number,
   layoutRows?: number,
   pets?: Pet[],
+  minions?: Minion[],
 ): { offsetX: number; offsetY: number } {
   // Clear
   ctx.clearRect(0, 0, canvasWidth, canvasHeight)
@@ -841,7 +902,7 @@ export function renderFrame(
   // Draw walls + furniture + characters (z-sorted)
   const selectedId = selection?.selectedAgentId ?? null
   const hoveredId = selection?.hoveredAgentId ?? null
-  renderScene(ctx, allFurniture, characters, offsetX, offsetY, zoom, selectedId, hoveredId, pets)
+  renderScene(ctx, allFurniture, characters, offsetX, offsetY, zoom, selectedId, hoveredId, pets, minions)
 
   // Character names (rendered after scene, before bubbles)
   renderCharacterNames(ctx, characters, offsetX, offsetY, zoom)

@@ -37,7 +37,9 @@ export interface FloorColor {
 export const CharacterState = {
   IDLE: 'idle',
   WALK: 'walk',
-  TYPE: 'type',
+  SIT: 'sit',
+  ATTACK: 'attack',
+  CELEBRATE: 'celebrate',
 } as const
 export type CharacterState = (typeof CharacterState)[keyof typeof CharacterState]
 
@@ -229,4 +231,35 @@ export interface Character {
   moodType: 'happy' | 'error' | 'stressed' | null
   /** Countdown timer for mood bubble display */
   moodTimer: number
+  /** Minion id this character is fighting (ATTACK state only), or null */
+  fightTargetId: string | null
+  /** Receive-hit effect timer (counts down from HIT_DURATION to 0). 0 = no effect. */
+  hitTimer: number
+  /** Horizontal knockback offset in pixels applied during hit effect */
+  hitKnockbackX: number
+}
+
+export interface Minion {
+  id: string
+  boothId: string
+  avatarKey: string
+  state: 'idle' | 'fight'
+  col: number
+  row: number
+  x: number
+  y: number
+  dir: Direction
+  frame: number
+  frameTimer: number
+}
+
+export interface FightBooth {
+  id: string
+  color: 'red' | 'blue'
+  /** Seat uid of the chair in this booth */
+  agentSeatId: string
+  minionCol: number
+  minionRow: number
+  assignedAgentId: number | null
+  minionId: string
 }

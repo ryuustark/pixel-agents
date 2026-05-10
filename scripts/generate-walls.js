@@ -1,5 +1,5 @@
 /**
- * Generate walls.png — a complete auto-tile wall set with all 16 bitmask configs.
+ * Generate walls.png — dungeon rock brick auto-tile wall set, all 16 bitmask configs.
  *
  * Layout: 4×4 grid, each cell is 16×32 pixels.
  * Piece at mask M: col = M % 4, row = floor(M / 4)
@@ -10,6 +10,12 @@
  * Each piece shows:
  *   - Tile area (bottom 16 rows): wall plan/cap view (top surface)
  *   - Above tile (top 16 rows): 3D face extending upward
+ *
+ * Dungeon brick style:
+ *   - Face: running bond brick pattern — 5px courses (1px mortar + 4px face),
+ *           8px wide bricks alternating offset per row, top-lit shading
+ *   - Cap:  light stone top edge (2px)
+ *   - Border: near-black outline
  *
  * Run: node scripts/generate-walls.js
  */
@@ -27,10 +33,15 @@ const IMG_W = GRID_COLS * TILE;
 const IMG_H = GRID_ROWS * SPRITE_H;
 
 // ── Colors (RGBA) ────────────────────────────────────────
-const TRANSPARENT = [0, 0, 0, 0];
-const BORDER    = [0x30, 0x2A, 0x28, 255]; // #302A28
-const CAP       = [0xFF, 0xFF, 0xFF, 255]; // #FFFFFF
-const FACE      = [0xEB, 0xE8, 0xE0, 255]; // #EBE8E0
+// Brightness matches original wall: CAP_STONE ≈ original white cap, STONE_LIGHT ≈ original cream face.
+// Mortar is a clear mid-dark so joints read without blending into the outline.
+const TRANSPARENT  = [0, 0, 0, 0];
+const BORDER       = [0x30, 0x2A, 0x28, 255]; // #302A28 — original border, dark brown
+const CAP_STONE    = [0xFF, 0xFF, 0xFF, 255]; // #FFFFFF — bright stone top cap (original CAP)
+const MORTAR       = [0x70, 0x60, 0x50, 255]; // #706050 — mid-dark mortar joint
+const STONE_DARK   = [0xA8, 0x98, 0x80, 255]; // #A89880 — brick lower shadow
+const STONE_MID    = [0xC8, 0xBA, 0xA8, 255]; // #C8BAA8 — main brick face
+const STONE_LIGHT  = [0xEB, 0xE8, 0xE0, 255]; // #EBE8E0 — top-lit brick highlight (original FACE)
 
 // ── Wall geometry ────────────────────────────────────────
 const WALL_BAND = 8;                       // wall thickness in pixels
@@ -194,9 +205,19 @@ function generatePiece(mask) {
       if (isOutline[r][c]) {
         pixels[r][c] = [...BORDER];
       } else if (isCap[r][c]) {
-        pixels[r][c] = [...CAP];
+        pixels[r][c] = [...CAP_STONE];
       } else {
-        pixels[r][c] = [...FACE];
+        // Running bond brick: 5px courses (1px mortar + 4px face), 8px wide bricks
+        const brickRow = Math.floor(r / 5);
+        const rowInBrick = r % 5;
+        const colInBrick = (c + (brickRow % 2) * 4) % 8;
+        if (rowInBrick === 0 || colInBrick === 0) {
+          pixels[r][c] = [...MORTAR];
+        } else if (rowInBrick <= 2) {
+          pixels[r][c] = colInBrick <= 3 ? [...STONE_LIGHT] : [...STONE_MID];
+        } else {
+          pixels[r][c] = [...STONE_DARK];
+        }
       }
     }
   }
