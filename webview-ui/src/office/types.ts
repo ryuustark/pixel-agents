@@ -37,8 +37,9 @@ export interface FloorColor {
 export const CharacterState = {
   IDLE: 'idle',
   WALK: 'walk',
-  TYPE: 'type',
-  FIGHT: 'fight',
+  SIT: 'sit',
+  ATTACK: 'attack',
+  CELEBRATE: 'celebrate',
 } as const
 export type CharacterState = (typeof CharacterState)[keyof typeof CharacterState]
 
@@ -230,8 +231,12 @@ export interface Character {
   moodType: 'happy' | 'error' | 'stressed' | null
   /** Countdown timer for mood bubble display */
   moodTimer: number
-  /** Minion id this character is fighting (FIGHT state only), or null */
+  /** Minion id this character is fighting (ATTACK state only), or null */
   fightTargetId: string | null
+  /** Receive-hit effect timer (counts down from HIT_DURATION to 0). 0 = no effect. */
+  hitTimer: number
+  /** Horizontal knockback offset in pixels applied during hit effect */
+  hitKnockbackX: number
 }
 
 export interface Minion {

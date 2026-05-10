@@ -404,7 +404,7 @@ export class OfficeState {
       ch.frameTimer = 0
     } else {
       // Already at seat or no path — sit down
-      ch.state = CharacterState.TYPE
+      ch.state = CharacterState.SIT
       ch.dir = seat.facingDir
       ch.frame = 0
       ch.frameTimer = 0
@@ -431,7 +431,7 @@ export class OfficeState {
       ch.frameTimer = 0
     } else {
       // Already at seat — sit down
-      ch.state = CharacterState.TYPE
+      ch.state = CharacterState.SIT
       ch.dir = seat.facingDir
       ch.frame = 0
       ch.frameTimer = 0
@@ -840,7 +840,7 @@ export class OfficeState {
       if (ch.matrixEffect === 'despawn') continue
       // Character sprite is 16x24, anchored bottom-center
       // Apply sitting offset to match visual position
-      const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
+      const sittingOffset = ch.state === CharacterState.SIT ? CHARACTER_SITTING_OFFSET_PX : 0
       const anchorY = ch.y + sittingOffset
       const left = ch.x - CHARACTER_HIT_HALF_WIDTH
       const right = ch.x + CHARACTER_HIT_HALF_WIDTH

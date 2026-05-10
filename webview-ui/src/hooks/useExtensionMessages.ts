@@ -124,9 +124,9 @@ export function useExtensionMessages(
       const os = getOfficeState()
       const keys = getAvatarKeys()
       if (keys.length === 0) return
-      const key1 = pickRandom() ?? keys[0]
-      const key2 = keys.length > 1 ? (pickRandom() ?? keys[0]) : key1
-      os.initBooths(key1, key2)
+      const pick = (preferred: string) =>
+        keys.includes(preferred) ? preferred : (pickRandom() ?? keys[0])
+      os.initBooths(pick('ene_sinner'), pick('ene_amongo'))
     }
 
     const handler = (e: MessageEvent) => {

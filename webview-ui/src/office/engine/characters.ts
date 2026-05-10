@@ -54,7 +54,7 @@ export function createCharacter(
   return {
     id,
     name,
-    state: CharacterState.TYPE,
+    state: CharacterState.SIT,
     dir: seat ? seat.facingDir : Direction.DOWN,
     x: center.x,
     y: center.y,
@@ -83,6 +83,8 @@ export function createCharacter(
     moodType: null,
     moodTimer: 0,
     fightTargetId: null,
+    hitTimer: 0,
+    hitKnockbackX: 0,
   }
 }
 
@@ -96,15 +98,21 @@ export function updateCharacter(
 ): void {
   ch.frameTimer += dt
 
+  // Tick hit effect independent of FSM state
+  if (ch.hitTimer > 0) {
+    ch.hitTimer = Math.max(0, ch.hitTimer - dt)
+    if (ch.hitTimer === 0) ch.hitKnockbackX = 0
+  }
+
   switch (ch.state) {
-    case CharacterState.TYPE: {
+    case CharacterState.SIT: {
       if (ch.frameTimer >= TYPE_FRAME_DURATION_SEC) {
         ch.frameTimer -= TYPE_FRAME_DURATION_SEC
         ch.frame = (ch.frame + 1) % 2
       }
-      // Agent just became active while resting at seat → switch to FIGHT
+      // Agent just became active while resting at seat → switch to ATTACK
       if (ch.isActive) {
-        ch.state = CharacterState.FIGHT
+        ch.state = CharacterState.ATTACK
         ch.frame = 0
         ch.frameTimer = 0
         break
@@ -124,10 +132,10 @@ export function updateCharacter(
       break
     }
 
-    case CharacterState.FIGHT: {
+    case CharacterState.ATTACK: {
       if (ch.frameTimer >= WALK_FRAME_DURATION_SEC) {
         ch.frameTimer -= WALK_FRAME_DURATION_SEC
-        ch.frame = (ch.frame + 1) % 4
+        ch.frame = (ch.frame + 1) % 3
       }
       if (!ch.isActive) {
         ch.seatTimer = 0
@@ -141,6 +149,21 @@ export function updateCharacter(
       break
     }
 
+    case CharacterState.CELEBRATE: {
+      if (ch.frameTimer >= TYPE_FRAME_DURATION_SEC) {
+        ch.frameTimer -= TYPE_FRAME_DURATION_SEC
+        ch.frame = (ch.frame + 1) % 3
+      }
+      ch.bubbleTimer -= dt
+      if (ch.bubbleTimer <= 0) {
+        // Celebration over — return to ATTACK if still active, otherwise IDLE
+        ch.state = ch.isActive ? CharacterState.ATTACK : CharacterState.IDLE
+        ch.frame = 0
+        ch.frameTimer = 0
+      }
+      break
+    }
+
     case CharacterState.IDLE: {
       // No idle animation — static pose
       ch.frame = 0
@@ -148,8 +171,8 @@ export function updateCharacter(
       // If became active, pathfind to seat
       if (ch.isActive) {
         if (!ch.seatId) {
-          // No seat assigned — type in place
-          ch.state = CharacterState.TYPE
+          // No seat assigned — sit in place
+          ch.state = CharacterState.ATTACK
           ch.frame = 0
           ch.frameTimer = 0
           break
@@ -164,8 +187,8 @@ export function updateCharacter(
             ch.frame = 0
             ch.frameTimer = 0
           } else {
-            // Already at seat — start fighting
-            ch.state = CharacterState.FIGHT
+            // Already at seat — start working
+            ch.state = CharacterState.ATTACK
             ch.dir = seat.facingDir
             ch.frame = 0
             ch.frameTimer = 0
@@ -223,12 +246,12 @@ export function updateCharacter(
 
         if (ch.isActive) {
           if (!ch.seatId) {
-            // No seat — fight in place
-            ch.state = CharacterState.FIGHT
+            // No seat — attack in place
+            ch.state = CharacterState.ATTACK
           } else {
             const seat = seats.get(ch.seatId)
             if (seat && ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow) {
-              ch.state = CharacterState.FIGHT
+              ch.state = CharacterState.ATTACK
               ch.dir = seat.facingDir
             } else {
               ch.state = CharacterState.IDLE
@@ -239,7 +262,7 @@ export function updateCharacter(
           if (ch.seatId) {
             const seat = seats.get(ch.seatId)
             if (seat && ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow) {
-              ch.state = CharacterState.TYPE
+              ch.state = CharacterState.SIT
               ch.dir = seat.facingDir
               // seatTimer < 0 is a sentinel from setAgentActive(false) meaning
               // "turn just ended" — skip the long rest so idle transition is immediate
@@ -304,23 +327,25 @@ export function updateCharacter(
   }
 }
 
-/** Get the correct sprite frame for a character's current state and direction */
+/** Get the correct sprite frame for a character's current state.
+ *  Direction-based flipping is handled by the renderer, not here. */
 export function getCharacterSprite(ch: Character, sprites: CharacterSprites): SpriteData {
-  // UP has no dedicated sprite — use the RIGHT-facing side view instead
-  const dir = ch.dir === Direction.UP ? Direction.RIGHT : ch.dir
+  // Hit effect: show sit frame while hit timer is active
+  if (ch.hitTimer > 0) {
+    return sprites.sit[ch.frame % 2]
+  }
   switch (ch.state) {
-    case CharacterState.TYPE:
-      if (isReadingTool(ch.currentTool)) {
-        return sprites.reading[dir][ch.frame % 2]
-      }
-      return sprites.typing[dir][ch.frame % 2]
+    case CharacterState.SIT:
+      return sprites.sit[ch.frame % 2]
+    case CharacterState.ATTACK:
+      return sprites.attack[ch.frame % 3]
     case CharacterState.WALK:
-    case CharacterState.FIGHT:
-      return sprites.walk[dir][ch.frame % 4]
+      return sprites.walk[ch.frame % 4]
+    case CharacterState.CELEBRATE:
+      return sprites.celebrate[ch.frame % 3]
     case CharacterState.IDLE:
-      return sprites.walk[dir][1]
     default:
-      return sprites.walk[dir][1]
+      return sprites.idle[ch.frame % 2]
   }
 }
 

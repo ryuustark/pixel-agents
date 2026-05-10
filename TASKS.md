@@ -31,6 +31,11 @@ updated: 2026-04-27
   - 112×16 px, 7 grayscale 16×16 patterns side by side
   - See pattern suggestions in `ai_memories/configuration/tileset-circus.md`
   - Place at `webview-ui/public/assets/floors.png` → rebuild
+  BUGS: 
+  ![alt text]({B3D4C6E1-F211-4EDA-A280-5BFCA7A4EC3E}.png)
+  from the latest build it differentiated correctly. but now lets not waste the whole 7 tiles in lava. 
+
+  lets rething them so it can be tile from lava or  water orsand or other options. see also the floor pattern down, is not looking too bad, if we have longer horizonral patterns it can be used for water and sand, and the more vertical patterns can be used for lava.
 
 - [ ] **Replace `walls.png` with circus tent stripe** — current walls are plain
   - Keep same 4×4 bitmask grid layout (64×128 px, 16 pieces of 16×32)

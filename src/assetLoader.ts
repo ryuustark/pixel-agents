@@ -335,34 +335,59 @@ export interface LoadedCharacterSprites {
   named: Record<string, CharacterDirectionSprites>
 }
 
-/** Parse a character sprite sheet PNG (336×144, 7 frames × 3 dirs) into directional frame arrays */
+/** Parse one 48×48 frame from a PNG at pixel offset (fx, fy) */
+function parseFrame(png: ReturnType<typeof PNG.sync.read>, fx: number, fy: number): string[][] {
+  const sprite: string[][] = [];
+  for (let y = 0; y < CHAR_FRAME_H; y++) {
+    const row: string[] = [];
+    for (let x = 0; x < CHAR_FRAME_W; x++) {
+      const px = fx + x;
+      const py = fy + y;
+      if (px >= png.width || py >= png.height) { row.push(''); continue; }
+      const idx = (py * png.width + px) * 4;
+      const a = png.data[idx + 3];
+      if (a < PNG_ALPHA_THRESHOLD) {
+        row.push('');
+      } else {
+        const r = png.data[idx];
+        const g = png.data[idx + 1];
+        const b = png.data[idx + 2];
+        row.push(`#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase());
+      }
+    }
+    sprite.push(row);
+  }
+  return sprite;
+}
+
+/**
+ * Parse a character sprite sheet PNG.
+ * - Standard (336×144): 7 cols × 3 rows (direction rows), 48×48 per frame
+ * - Circus (192×240): 4 cols × 5 rows (animation rows), 48×48 per frame
+ *   → all 20 frames stored flat in `down` (row-major order)
+ */
 function parseCharacterPng(pngBuffer: Buffer): CharacterDirectionSprites {
   const png = PNG.sync.read(pngBuffer);
+
+  // Detect circus format: 4-col × 5-row layout
+  if (png.width === CHAR_FRAME_W * 4 && png.height === CHAR_FRAME_H * 5) {
+    const frames: string[][][] = [];
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 4; col++) {
+        frames.push(parseFrame(png, col * CHAR_FRAME_W, row * CHAR_FRAME_H));
+      }
+    }
+    return { down: frames, up: [], right: [] };
+  }
+
+  // Standard 3-direction sheet
   const charData: CharacterDirectionSprites = { down: [], up: [], right: [] };
   for (let dirIdx = 0; dirIdx < CHARACTER_DIRECTIONS.length; dirIdx++) {
     const dir = CHARACTER_DIRECTIONS[dirIdx];
     const rowOffsetY = dirIdx * CHAR_FRAME_H;
     const frames: string[][][] = [];
     for (let f = 0; f < CHAR_FRAMES_PER_ROW; f++) {
-      const sprite: string[][] = [];
-      const frameOffsetX = f * CHAR_FRAME_W;
-      for (let y = 0; y < CHAR_FRAME_H; y++) {
-        const row: string[] = [];
-        for (let x = 0; x < CHAR_FRAME_W; x++) {
-          const idx = (((rowOffsetY + y) * png.width) + (frameOffsetX + x)) * 4;
-          const r = png.data[idx];
-          const g = png.data[idx + 1];
-          const b = png.data[idx + 2];
-          const a = png.data[idx + 3];
-          if (a < PNG_ALPHA_THRESHOLD) {
-            row.push('');
-          } else {
-            row.push(`#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase());
-          }
-        }
-        sprite.push(row);
-      }
-      frames.push(sprite);
+      frames.push(parseFrame(png, f * CHAR_FRAME_W, rowOffsetY));
     }
     charData[dir] = frames;
   }
@@ -485,6 +510,7 @@ export async function loadStreamAvatarSprites(
       const frames: string[][][] = [];
       for (let colIdx = 0; colIdx < cols; colIdx++) {
         const sprite: string[][] = [];
+        let hasOpaque = false;
         for (let y = 0; y < frameH; y++) {
           const row: string[] = [];
           for (let x = 0; x < frameW; x++) {
@@ -498,12 +524,13 @@ export async function loadStreamAvatarSprites(
             if (av < PNG_ALPHA_THRESHOLD) {
               row.push('');
             } else {
+              hasOpaque = true;
               row.push(`#${rv.toString(16).padStart(2, '0')}${gv.toString(16).padStart(2, '0')}${bv.toString(16).padStart(2, '0')}`.toUpperCase());
             }
           }
           sprite.push(row);
         }
-        frames.push(sprite);
+        if (hasOpaque) frames.push(sprite);
       }
       animRows.push(frames);
     }
