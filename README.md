@@ -1,24 +1,62 @@
+<a id="english"></a>
+**English** | [Türkçe](#türkçe)
+
+<p align="center">
+  <a href="https://marketplace.visualstudio.com/items?itemName=hootbu.pixel-agent"><img src="https://img.shields.io/badge/version-1.2.5-blue" alt="Version"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=hootbu.pixel-agent"><img src="https://img.shields.io/badge/VS%20Code%20Marketplace-Install-007ACC?logo=visualstudiocode&logoColor=white" alt="Install on VS Code Marketplace"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow" alt="License: MIT"></a>
+  <a href="https://github.com/hootbu/pixel-agents"><img src="https://img.shields.io/github/stars/hootbu/pixel-agents?style=social" alt="Stars"></a>
+</p>
+
 # Pixel Agents
 
-A VS Code extension that turns your AI coding agents into animated pixel art characters in a virtual office.
+Tired of staring at spinning loaders while Claude Code works? Pixel Agents turns every Claude terminal into an animated character in a virtual office, so you can **see** what your AI is doing in real time.
 
 Each Claude Code terminal you open spawns a character that walks around, sits at desks, and visually reflects what the agent is doing — typing when writing code, reading when searching files, waiting when it needs your attention.
 
+<details>
+<summary><strong>Table of Contents</strong></summary>
+
+- [Features](#features)
+- [Seats](#seats)
+- [Task Panel & Sub-Agents](#task-panel--sub-agents)
+- [Achievements](#achievements)
+- [Office Pets](#office-pets)
+- [Token Usage](#token-usage)
+- [Costume Mode](#costume-mode)
+- [Requirements](#requirements)
+- [Getting Started](#getting-started)
+- [Layout Editor](#layout-editor)
+- [How It Works](#how-it-works)
+- [Tech Stack](#tech-stack)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+
+</details>
+
 Based on the original [Pixel Agents extension](https://marketplace.visualstudio.com/items?itemName=pablodelucca.pixel-agents) by pablodelucca. This fork is developed by **Emir Yorgun** ([@hootbu](https://github.com/hootbu)) with the following additions:
 
-- Seat management and desk assignment system
-- Task panel with real-time agent activity tracking
+**🎮 Visualization & Office Life**
 - Sub-agent visualization — Task tool spawns as separate characters linked to their parent
+- Office pets — cats and dogs with AI behaviors, configurable via Settings
+- Mood reactions — happy, error, and stressed emoji bubbles based on agent activity
+
+**📊 Insights & Tracking**
+- Task panel with real-time agent activity tracking
+- Real-time token usage panel with per-agent breakdown and color-coded progress bars
+- Achievement system — 8 unlockable achievements with progress tracking and gallery
+
+**🎨 Customization**
+- Seat management and desk assignment system
+- Pixel text — place custom text on walls with a built-in font renderer and z-layer control
+- Costume mode — change agent appearance at runtime with 6 character models and hue shift slider
+
+**🔧 Reliability & UX**
 - Adaptive status detection with "Thinking..." indicator and smarter permission timers
 - Zoom persistence and pixel-perfect 1px zoom steps
 - Panel state retention across tab switches
 - Sound notifications on agent turn completion
-- Pixel text — place custom text on walls with a built-in font renderer and z-layer control
-- Real-time token usage panel with per-agent breakdown and color-coded progress bars
-- Mood reactions — happy, error, and stressed emoji bubbles based on agent activity
-- Achievement system — 8 unlockable achievements with progress tracking and gallery
-- Office pets — cats and dogs with AI behaviors, configurable via Settings
-- Costume mode — change agent appearance at runtime with 6 character models and hue shift slider
 
 ![Pixel Agents screenshot](webview-ui/public/Screenshot.png)
 
@@ -135,7 +173,7 @@ Change any agent's appearance at runtime — pick from 6 character models and fi
 2. Download the latest `.vsix` file
 3. Install via terminal:
    ```bash
-   code --install-extension pixel-agent-1.2.3.vsix
+   code --install-extension pixel-agent-1.2.5.vsix
    ```
    Or in VS Code: **Cmd+Shift+P → Install from VSIX** and select the downloaded file.
 4. Reload VS Code (**Cmd+Shift+P → Reload Window**)
@@ -157,7 +195,7 @@ Then press **F5** in VS Code to launch the Extension Development Host.
 To build, package, and install as a `.vsix` extension in one step, add this alias to your `~/.zshrc`:
 
 ```bash
-alias pxbuild="cd ~/pixel-agents && npm run build && npx vsce package --no-dependencies && code --install-extension pixel-agent-1.2.3.vsix --force"
+alias pxbuild="cd ~/pixel-agents && npm run build && npx vsce package --no-dependencies && code --install-extension pixel-agent-1.2.5.vsix --force"
 ```
 
 Then run `pxbuild` from any terminal. After installation, reload VS Code (**Cmd+Shift+P → Reload Window**).
@@ -255,15 +293,19 @@ Still open for contributions:
 
 If any of these interest you, feel free to open an issue or submit a PR.
 
-## Contributions
+## Contributing
 
 See [CONTRIBUTORS.md](CONTRIBUTORS.md) for instructions on how to contribute to this project.
 
 Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
 
-## Maintainer
+### Maintainer
 
 This fork is maintained by **Emir Yorgun** ([@hootbu](https://github.com/hootbu)). All additions listed above were built on top of the original project by [pablodelucca](https://github.com/pablodelucca).
+
+## ⭐ Star this repo
+
+If Pixel Agents makes your Claude Code workflow more fun, **please star the repo** — it helps others discover the project and keeps the momentum going. Issues are now open: file a bug or request a feature on the [Issues](https://github.com/hootbu/pixel-agents/issues) page, or come say hi in [Discussions](https://github.com/hootbu/pixel-agents/discussions). Pull requests are very welcome too.
 
 ## License
 
@@ -271,27 +313,58 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-# Pixel Agents (TR)
+<a id="türkçe"></a>
+[English](#english) | **Türkçe**
 
-AI kodlama ajanlarınızı sanal bir ofiste animasyonlu piksel sanat karakterlerine dönüştüren bir VS Code eklentisi.
+# Pixel Agents
+
+Claude Code çalışırken dönen yükleme animasyonuna bakmaktan sıkıldınız mı? Pixel Agents, her Claude terminalini sanal bir ofiste animasyonlu bir karaktere dönüştürür ve **AI'nızın gerçek zamanlı olarak ne yaptığını görmenizi** sağlar.
 
 Açtığınız her Claude Code terminali, ofiste dolaşan, masalarda oturan ve ajanın ne yaptığını görsel olarak yansıtan bir karakter oluşturur — kod yazarken yazıyor, dosya ararken okuyor, sizin müdahalenizi beklerken bekliyor.
 
+<details>
+<summary><strong>İçindekiler</strong></summary>
+
+- [Özellikler](#özellikler)
+- [Oturma Yerleri](#oturma-yerleri)
+- [Görev Paneli ve Alt-Ajanlar](#görev-paneli-ve-alt-ajanlar)
+- [Başarımlar](#başarımlar)
+- [Ofis Evcil Hayvanları](#ofis-evcil-hayvanları)
+- [Token Kullanımı](#token-kullanımı)
+- [Kostüm Modu](#kostüm-modu)
+- [Gereksinimler](#gereksinimler)
+- [Başlarken](#başlarken)
+- [Düzen Editörü](#düzen-editörü)
+- [Nasıl Çalışır](#nasıl-çalışır)
+- [Teknoloji Yığını](#teknoloji-yığını)
+- [Yol Haritası](#yol-haritası)
+- [Katkıda Bulunma](#katkıda-bulunma)
+- [Lisans](#lisans)
+
+</details>
+
 pablodelucca tarafından geliştirilen orijinal [Pixel Agents eklentisine](https://marketplace.visualstudio.com/items?itemName=pablodelucca.pixel-agents) dayanmaktadır. Bu fork **Emir Yorgun** ([@hootbu](https://github.com/hootbu)) tarafından aşağıdaki eklemelerle geliştirilmiştir:
 
-- Oturma yeri yönetimi ve masa atama sistemi
-- Gerçek zamanlı ajan aktivite takibi ile görev paneli
+**🎮 Görselleştirme ve Ofis Yaşamı**
 - Alt-ajan görselleştirmesi — Task aracı, ana ajana bağlı ayrı karakterler olarak ortaya çıkar
+- Ofis evcil hayvanları — AI davranışlarıyla kediler ve köpekler, Ayarlar'dan yapılandırılabilir
+- Ruh hali reaksiyonları — ajan aktivitesine göre mutlu, hata ve stresli emoji balonları
+
+**📊 İçgörüler ve Takip**
+- Gerçek zamanlı ajan aktivite takibi ile görev paneli
+- Ajan bazlı dağılım ve renkli ilerleme çubuklarıyla gerçek zamanlı token kullanım paneli
+- Başarım sistemi — ilerleme takibi ve galeri ile 8 açılabilir başarım
+
+**🎨 Özelleştirme**
+- Oturma yeri yönetimi ve masa atama sistemi
+- Piksel yazı — yerleşik font oluşturucu ve z-katman kontrolü ile duvarlara özel yazı yerleştirme
+- Kostüm modu — 6 karakter modeli ve renk kaydırma ile ajanların görünüşünü çalışma zamanında değiştirme
+
+**🔧 Güvenilirlik ve UX**
 - "Düşünüyor..." göstergesi ve daha akıllı izin zamanlayıcıları ile uyarlanabilir durum algılama
 - Yakınlaştırma kalıcılığı ve piksel-mükemmel 1px yakınlaştırma adımları
 - Panel geçişlerinde durum koruma
 - Ajan turu tamamlandığında ses bildirimleri
-- Piksel yazı — yerleşik font oluşturucu ve z-katman kontrolü ile duvarlara özel yazı yerleştirme
-- Ajan bazlı dağılım ve renkli ilerleme çubuklarıyla gerçek zamanlı token kullanım paneli
-- Ruh hali reaksiyonları — ajan aktivitesine göre mutlu, hata ve stresli emoji balonları
-- Başarım sistemi — ilerleme takibi ve galeri ile 8 açılabilir başarım
-- Ofis evcil hayvanları — AI davranışlarıyla kediler ve köpekler, Ayarlar'dan yapılandırılabilir
-- Kostüm modu — 6 karakter modeli ve renk kaydırma ile ajanların görünüşünü çalışma zamanında değiştirme
 - Ajan bazlı izin modu — + Agent'a bastıktan sonra Normal veya Skip Permissions (`--dangerously-skip-permissions`) seçimi
 
 ![Pixel Agents ekran görüntüsü](webview-ui/public/Screenshot.png)
@@ -409,7 +482,7 @@ Herhangi bir ajanın görünüşünü çalışma zamanında değiştirin — 6 k
 2. En son `.vsix` dosyasını indirin
 3. Terminal ile kurun:
    ```bash
-   code --install-extension pixel-agent-1.2.3.vsix
+   code --install-extension pixel-agent-1.2.5.vsix
    ```
    Veya VS Code'da: **Cmd+Shift+P → Install from VSIX** ile indirilen dosyayı seçin.
 4. VS Code'u yeniden yükleyin (**Cmd+Shift+P → Reload Window**)
@@ -431,7 +504,7 @@ Ardından VS Code'da **F5**'e basarak Extension Development Host'u başlatın.
 `.vsix` eklentisini tek adımda derleyip kurmak için `~/.zshrc` dosyanıza şu alias'ı ekleyin:
 
 ```bash
-alias pxbuild="cd ~/pixel-agents && npm run build && npx vsce package --no-dependencies && code --install-extension pixel-agent-1.2.3.vsix --force"
+alias pxbuild="cd ~/pixel-agents && npm run build && npx vsce package --no-dependencies && code --install-extension pixel-agent-1.2.5.vsix --force"
 ```
 
 Ardından herhangi bir terminalden `pxbuild` çalıştırın. Kurulumdan sonra VS Code'u yeniden yükleyin (**Cmd+Shift+P → Reload Window**).
@@ -505,6 +578,7 @@ Bu fork'ta uygulanmış:
 - ~~**Başarım sistemi**~~ — ilerleme takibi ve galeri ile 8 açılabilir başarım
 - ~~**Ofis evcil hayvanları**~~ — AI davranışlarıyla kediler ve köpekler, Ayarlar'dan yapılandırılabilir
 - ~~**Kostüm modu**~~ — 6 karakter modeli ve renk kaydırma ile ajanların görünüşünü çalışma zamanında değiştirme
+- ~~**Ajan bazlı izin modu**~~ — + Agent'a bastıktan sonra ajan başına Normal veya Skip Permissions (`--dangerously-skip-permissions`) seçimi
 
 ### Daha İyi Durum Algılama
 
@@ -534,9 +608,13 @@ Bu projeye nasıl katkıda bulunacağınız için [CONTRIBUTORS.md](CONTRIBUTORS
 
 Katılmadan önce lütfen [Davranış Kurallarımızı](CODE_OF_CONDUCT.md) okuyun.
 
-## Geliştirici
+### Geliştirici
 
 Bu fork **Emir Yorgun** ([@hootbu](https://github.com/hootbu)) tarafından sürdürülmektedir. Yukarıda listelenen tüm eklemeler, [pablodelucca](https://github.com/pablodelucca) tarafından geliştirilen orijinal proje üzerine inşa edilmiştir.
+
+## ⭐ Bu Repo'ya Yıldız Verin
+
+Pixel Agents Claude Code iş akışınızı daha eğlenceli hale getiriyorsa, **lütfen repo'ya yıldız verin** — bu, başkalarının projeyi keşfetmesine yardımcı olur ve ivmeyi sürdürür. Issues artık açık: bir hata bildirin veya bir özellik isteyin [Issues](https://github.com/hootbu/pixel-agents/issues) sayfasında, ya da [Discussions](https://github.com/hootbu/pixel-agents/discussions)'da merhaba demeye gelin. Pull request'ler de çok hoş karşılanır.
 
 ## Lisans
 
