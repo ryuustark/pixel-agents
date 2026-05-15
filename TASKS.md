@@ -129,8 +129,6 @@ updated: 2026-04-27
 
 - [ ] Update `Project - PixelCircus.md` milestones to reflect current state (48×48 done, Node 20 working)
 - [ ] Auto-discover all `char_*.png` + companion `_meta.json` files in the characters folder
-- [ ] Persist custom character assignment per agent name (not just palette rotation)
-- [ ] Cross-project: align PixelCircus character designs with Claw3D sprites — [[Project - Digital Circus Claw3D]]
 
 ---
 

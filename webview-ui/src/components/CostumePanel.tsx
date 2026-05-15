@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { getCharacterSprites } from '../office/sprites/spriteData.js'
+import { getCharacterSprites, getNamedCharacterSprites } from '../office/sprites/spriteData.js'
 import { getCachedSprite } from '../office/sprites/spriteCache.js'
 import { COSTUME_PREVIEW_ZOOM, PALETTE_COUNT } from '../constants.js'
 
@@ -7,7 +7,10 @@ interface CostumePanelProps {
   agentId: number
   currentPalette: number
   currentHueShift: number
+  currentCostume: string
+  availableNamedChars: string[]
   onSelect: (palette: number, hueShift: number) => void
+  onSelectCostume: (costume: string) => void
   onClose: () => void
 }
 
@@ -59,6 +62,70 @@ const sliderLabelStyle: React.CSSProperties = {
   color: 'var(--pixel-text-dim)',
 }
 
+const DISPLAY_NAMES: Record<string, string> = {
+  caine: 'Caine',
+  bubble: 'Bubble',
+  sinner: 'Sinner',
+  amongocat: 'Amongo Cat',
+  meowatar: 'Meowatar',
+  michimaru: 'Michimaru',
+}
+
+function getDisplayName(key: string): string {
+  return DISPLAY_NAMES[key] ?? (key.charAt(0).toUpperCase() + key.slice(1))
+}
+
+function NamedCharPreview({ name, isSelected, onClick }: {
+  name: string
+  isSelected: boolean
+  onClick: () => void
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const sprites = getNamedCharacterSprites(name)
+    if (!sprites) return
+    const cached = getCachedSprite(sprites.idle[0], COSTUME_PREVIEW_ZOOM)
+
+    canvas.width = cached.width
+    canvas.height = cached.height
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(cached, 0, 0)
+  }, [name])
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 2,
+        cursor: 'pointer',
+      }}
+    >
+      <canvas
+        ref={canvasRef}
+        style={{
+          border: isSelected ? '2px solid var(--pixel-accent)' : '2px solid transparent',
+          borderRadius: 0,
+          imageRendering: 'pixelated',
+          display: 'block',
+          margin: '0 auto',
+        }}
+      />
+      <span style={{ fontSize: '16px', color: 'var(--pixel-text-dim)', whiteSpace: 'nowrap' }}>
+        {getDisplayName(name)}
+      </span>
+    </div>
+  )
+}
+
 function CharacterPreview({ palette, hueShift, isSelected, onClick }: {
   palette: number
   hueShift: number
@@ -74,9 +141,7 @@ function CharacterPreview({ palette, hueShift, isSelected, onClick }: {
     if (!ctx) return
 
     const sprites = getCharacterSprites(palette, hueShift)
-    // idle[0] = front-facing standing pose
-    const sprite = sprites.idle[0]
-    const cached = getCachedSprite(sprite, COSTUME_PREVIEW_ZOOM)
+    const cached = getCachedSprite(sprites.idle[0], COSTUME_PREVIEW_ZOOM)
 
     canvas.width = cached.width
     canvas.height = cached.height
@@ -100,13 +165,28 @@ function CharacterPreview({ palette, hueShift, isSelected, onClick }: {
   )
 }
 
-export function CostumePanel({ currentPalette, currentHueShift, onSelect, onClose }: CostumePanelProps) {
+export function CostumePanel({
+  currentPalette,
+  currentHueShift,
+  currentCostume,
+  availableNamedChars,
+  onSelect,
+  onSelectCostume,
+  onClose,
+}: CostumePanelProps) {
+  const [selectedCostume, setSelectedCostume] = useState(currentCostume)
   const [selectedPalette, setSelectedPalette] = useState(currentPalette)
   const [hueShift, setHueShift] = useState(currentHueShift)
 
+  const handleNamedClick = useCallback((name: string) => {
+    const next = selectedCostume === name ? '' : name
+    setSelectedCostume(next)
+    onSelectCostume(next)
+  }, [selectedCostume, onSelectCostume])
+
   const handlePaletteClick = useCallback((palette: number) => {
+    setSelectedCostume('')
     setSelectedPalette(palette)
-    // Apply immediately with current hue shift (reset to 0 on palette change)
     setHueShift(0)
     onSelect(palette, 0)
   }, [onSelect])
@@ -117,9 +197,8 @@ export function CostumePanel({ currentPalette, currentHueShift, onSelect, onClos
     onSelect(selectedPalette, value)
   }, [selectedPalette, onSelect])
 
-  // Previews use the hue shift only for the selected palette
   const previewHueShift = (palette: number) =>
-    palette === selectedPalette ? hueShift : 0
+    palette === selectedPalette && selectedCostume === '' ? hueShift : 0
 
   return (
     <div style={panelStyle}>
@@ -127,17 +206,27 @@ export function CostumePanel({ currentPalette, currentHueShift, onSelect, onClos
         <span style={titleStyle}>Choose Costume</span>
         <button style={closeBtnStyle} onClick={onClose} title="Close">X</button>
       </div>
+
       <div style={gridStyle}>
+        {availableNamedChars.map((name) => (
+          <NamedCharPreview
+            key={name}
+            name={name}
+            isSelected={selectedCostume === name}
+            onClick={() => handleNamedClick(name)}
+          />
+        ))}
         {Array.from({ length: PALETTE_COUNT }, (_, i) => (
           <CharacterPreview
             key={i}
             palette={i}
             hueShift={previewHueShift(i)}
-            isSelected={i === selectedPalette}
+            isSelected={selectedCostume === '' && i === selectedPalette}
             onClick={() => handlePaletteClick(i)}
           />
         ))}
       </div>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={sliderLabelStyle}>Hue Shift: {hueShift}°</span>
         <input
@@ -147,7 +236,8 @@ export function CostumePanel({ currentPalette, currentHueShift, onSelect, onClos
           step={15}
           value={hueShift}
           onChange={handleHueShiftChange}
-          style={{ width: '100%', cursor: 'pointer' }}
+          disabled={selectedCostume !== ''}
+          style={{ width: '100%', cursor: selectedCostume !== '' ? 'not-allowed' : 'pointer' }}
         />
       </div>
     </div>

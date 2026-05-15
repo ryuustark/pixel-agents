@@ -1010,6 +1010,11 @@ export function setNamedCharacterTemplates(data: Record<string, LoadedCharacterD
   }
 }
 
+/** Return all available named character keys (lowercase). */
+export function getAvailableNamedCharacters(): string[] {
+  return Object.keys(loadedNamedCharacters)
+}
+
 // ════════════════════════════════════════════════════════════════
 // Sprite resolution + caching
 // ════════════════════════════════════════════════════════════════

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { OfficeState } from './office/engine/officeState.js'
 import { OfficeCanvas } from './office/components/OfficeCanvas.js'
 import { ToolOverlay } from './office/components/ToolOverlay.js'
@@ -22,6 +22,7 @@ import { AchievementPopup } from './components/AchievementPopup.js'
 import { AchievementGallery } from './components/AchievementGallery.js'
 import { CostumePanel } from './components/CostumePanel.js'
 import { pickRandom, getAvatarKeys } from './office/sprites/streamAvatarController.js'
+import { getAvailableNamedCharacters } from './office/sprites/spriteData.js'
 
 // Game state lives outside React — updated imperatively by message handlers
 const officeStateRef = { current: null as OfficeState | null }
@@ -135,6 +136,12 @@ function App() {
   const [isSeatMode, setIsSeatMode] = useState(false)
   const [isCostumeMode, setIsCostumeMode] = useState(false)
   const [costumeTargetAgentId, setCostumeTargetAgentId] = useState<number | null>(null)
+  const [availableNamedChars, setAvailableNamedChars] = useState<string[]>([])
+  useEffect(() => {
+    if (layoutReady) {
+      setAvailableNamedChars(getAvailableNamedCharacters())
+    }
+  }, [layoutReady])
   const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(false)
   const [isUsagePanelOpen, setIsUsagePanelOpen] = useState(false)
 
@@ -214,18 +221,12 @@ function App() {
     setCostumeTargetAgentId(agentId)
   }, [])
 
-  const handleCostumeSelect = useCallback((palette: number, hueShift: number) => {
-    if (costumeTargetAgentId === null) return
+  const persistCostumes = useCallback(() => {
     const os = getOfficeState()
-    const ch = os.characters.get(costumeTargetAgentId)
-    if (!ch) return
-    ch.palette = palette
-    ch.hueShift = hueShift
-    // Persist via existing messages
-    const seats: Record<number, { palette: number; seatId: string | null }> = {}
+    const seats: Record<number, { palette: number; hueShift: number; seatId: string | null; costume: string }> = {}
     for (const c of os.characters.values()) {
       if (c.isSubagent) continue
-      seats[c.id] = { palette: c.palette, seatId: c.seatId }
+      seats[c.id] = { palette: c.palette, hueShift: c.hueShift, seatId: c.seatId, costume: c.costume }
     }
     vscode.postMessage({ type: 'saveAgentSeats', seats })
     const names: Record<string, { seatId: string; palette: number; hueShift: number }> = {}
@@ -234,7 +235,27 @@ function App() {
       names[c.name] = { seatId: c.seatId || '', palette: c.palette, hueShift: c.hueShift }
     }
     vscode.postMessage({ type: 'saveAgentNames', names })
-  }, [costumeTargetAgentId])
+  }, [])
+
+  const handleCostumeSelect = useCallback((palette: number, hueShift: number) => {
+    if (costumeTargetAgentId === null) return
+    const os = getOfficeState()
+    const ch = os.characters.get(costumeTargetAgentId)
+    if (!ch) return
+    ch.palette = palette
+    ch.hueShift = hueShift
+    ch.costume = ''  // clear explicit costume when picking palette
+    persistCostumes()
+  }, [costumeTargetAgentId, persistCostumes])
+
+  const handleCostumeNameSelect = useCallback((costume: string) => {
+    if (costumeTargetAgentId === null) return
+    const os = getOfficeState()
+    const ch = os.characters.get(costumeTargetAgentId)
+    if (!ch) return
+    ch.costume = costume
+    persistCostumes()
+  }, [costumeTargetAgentId, persistCostumes])
 
   const handleToggleEditModeWithCostume = useCallback(() => {
     setIsCostumeMode(false)
@@ -431,7 +452,10 @@ function App() {
             agentId={costumeTargetAgentId}
             currentPalette={ch.palette}
             currentHueShift={ch.hueShift}
+            currentCostume={ch.costume}
+            availableNamedChars={availableNamedChars}
             onSelect={handleCostumeSelect}
+            onSelectCostume={handleCostumeNameSelect}
             onClose={() => setCostumeTargetAgentId(null)}
           />
         )

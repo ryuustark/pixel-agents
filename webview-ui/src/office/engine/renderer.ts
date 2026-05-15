@@ -132,7 +132,7 @@ export function renderScene(
 
   // Characters
   for (const ch of characters) {
-    const sprites = (ch.name ? getNamedCharacterSprites(ch.name) : null) ?? getCharacterSprites(ch.palette, ch.hueShift)
+    const sprites = (ch.costume ? getNamedCharacterSprites(ch.costume) : null) ?? (ch.name ? getNamedCharacterSprites(ch.name) : null) ?? getCharacterSprites(ch.palette, ch.hueShift)
     const spriteData = getCharacterSprite(ch, sprites)
     const cached = getCachedSprite(spriteData, zoom)
 

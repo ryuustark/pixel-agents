@@ -117,7 +117,7 @@ export function useExtensionMessages(
 
   useEffect(() => {
     // Buffer agents from existingAgents until layout is loaded
-    let pendingAgents: Array<{ id: number; palette?: number; hueShift?: number; seatId?: string; name?: string }> = []
+    let pendingAgents: Array<{ id: number; palette?: number; hueShift?: number; seatId?: string; name?: string; costume?: string }> = []
 
     function tryInitBooths(): void {
       if (!streamAvatarsLoadedRef.current || !layoutLoadedRef.current) return
@@ -151,6 +151,10 @@ export function useExtensionMessages(
         // Add buffered agents now that layout (and seats) are correct
         for (const p of pendingAgents) {
           os.addAgent(p.id, p.palette, p.hueShift, p.seatId, true, p.name)
+          if (p.costume) {
+            const ch = os.characters.get(p.id)
+            if (ch) ch.costume = p.costume
+          }
         }
         pendingAgents = []
         layoutReadyRef.current = true
@@ -210,7 +214,7 @@ export function useExtensionMessages(
         os.removeAgent(id)
       } else if (msg.type === 'existingAgents') {
         const incoming = msg.agents as number[]
-        const meta = (msg.agentMeta || {}) as Record<number, { palette?: number; hueShift?: number; seatId?: string }>
+        const meta = (msg.agentMeta || {}) as Record<number, { palette?: number; hueShift?: number; seatId?: string; costume?: string }>
         const nameMap = (msg.agentNameMap || {}) as Record<number, string>
         const agentNamesData = (msg.agentNames || {}) as Record<string, { seatId: string; palette: number; hueShift: number }>
         // Hydrate savedNameMap with persisted data so closed-agent bindings survive
@@ -227,6 +231,7 @@ export function useExtensionMessages(
             hueShift: nd?.hueShift ?? m?.hueShift,
             seatId: nd?.seatId ?? m?.seatId,
             name: agentName,
+            costume: m?.costume ?? '',
           })
         }
         setAgents((prev) => {

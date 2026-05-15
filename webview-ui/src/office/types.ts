@@ -237,6 +237,8 @@ export interface Character {
   hitTimer: number
   /** Horizontal knockback offset in pixels applied during hit effect */
   hitKnockbackX: number
+  /** Explicit costume override: named sprite key (e.g. 'sinner') or '' for palette mode */
+  costume: string
 }
 
 export interface Minion {

@@ -85,6 +85,7 @@ export function createCharacter(
     fightTargetId: null,
     hitTimer: 0,
     hitKnockbackX: 0,
+    costume: '',
   }
 }
 
