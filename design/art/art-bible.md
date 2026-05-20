@@ -80,6 +80,17 @@ Two modes in `colorize.ts`:
 ```
 All overlays use these vars — never hardcode panel colors inline.
 
+### Circus Theme Target (not yet applied — update `index.css :root` when UI theme task is tackled)
+
+| Variable | Current | Circus target |
+|---|---|---|
+| `--pixel-bg` | `#1e1e2e` | `#0d0d1a` |
+| `--pixel-border` | `#4a4a6a` | `#ffd700` (gold) |
+| `--pixel-border-light` | `#6a6a8a` | `#ffea80` |
+| `--pixel-accent` | `#5a8cff` | `#cc2200` (circus red) |
+| `--pixel-green` | `#5ac88c` | unchanged |
+| `--pixel-shadow` | `2px 2px 0px #0a0a14` | unchanged |
+
 ### Prohibited Color Behaviors
 - No gradients on sprite pixels (CSS gradients on UI panels are acceptable)
 - No semi-transparent sprite pixels (alpha < 128 = transparent, ≥ 128 = fully opaque)
@@ -132,6 +143,72 @@ The `parseCharacterPng()` function in `src/assetLoader.ts` auto-detects frame si
 
 ### Minimum Viable Sheet
 A custom character must have at minimum: **Row 0, columns 0–2** (down walk cycle). Missing frames render as blank/transparent without crashing.
+
+### Circus Format Sheet (named characters with circus animations)
+
+Used by: `char_caine_circus.png`, `char_bubble_circus.png`. Detected by `buildCircusSprites()` in `spriteData.ts`.
+
+```
+Sheet size: 192×240 px
+Frame grid: 4 columns × 5 rows, 48×48 px per frame
+
+Row 0 — idle      cols 0–1 (2 frames)   IDLE — wandering pause
+Row 1 — walk      cols 0–3 (4 frames)   WALK
+Row 2 — sit       cols 0–1 (2 frames)   TYPE — any tool, seated
+Row 3 — attack    cols 0–2 (3 frames)   TYPE — write/edit/bash/task tools
+Row 4 — celebrate cols 0–2 (3 frames)   TYPE — celebrate / task complete
+```
+
+LEFT direction auto-generated at runtime (horizontal flip of RIGHT). UP direction aliases to RIGHT for this format.
+
+---
+
+### Caine — Character Design Rules [APPROVED 2026-05-15]
+
+**Reference**: `Images/char_caine.png` is the definitive silhouette and palette source. Match hat proportions, coat diamond pattern, and wand handle position from this sheet.
+
+**Silhouette rule**: Tall top hat must read as the crown at a glance. Long coat adds vertical weight below. Wand/staff extends reach rightward. All three must be legible in silhouette at 2× zoom.
+
+- **Hat**: ≥10px tall on a 48px frame. Dark purple/midnight blue body, contrasting brim.
+- **Coat**: long body, diamond/harlequin pattern. Red + teal/blue primary colors with white ruff collar.
+- **Face**: white base, red markings/smile. High contrast — readable at 1× zoom.
+- **Wand/staff**: dark handle with round glowing orb at tip. Orb is the animation anchor.
+
+#### Wand Animation Rules ("the stick") [APPROVED 2026-05-15]
+
+The wand is the **primary animation driver** — it must never be static across two consecutive frames in any animation row.
+
+**Orb Glow Pulse**: every two-frame animation must alternate between bright and dim states.
+- Bright state: full orb color pixel(s) + 1px lighter highlight at top-left.
+- Dim state: orb color only, no highlight pixel.
+
+**Per-animation behavior:**
+
+| Row | Wand motion | Orb state |
+|---|---|---|
+| `idle` F0 | vertical, grounded | dim |
+| `idle` F1 | 1–2px tilt right | bright |
+| `walk` F0 | neutral (vertical) | dim |
+| `walk` F1 | swings back, tip +2–3px | dim |
+| `walk` F2 | swings forward, tip −2–3px | **bright** |
+| `walk` F3 | returns to neutral | dim |
+| `sit` F0 | diagonal lean, static | dim |
+| `sit` F1 | unchanged position | **bright** |
+| `attack` F0 | pulled back toward body | dim |
+| `attack` F1 | extended forward/up (strike) | **bright** |
+| `attack` F2 | recoil to neutral | dim |
+| `celebrate` F0 | halfway raised | dim |
+| `celebrate` F1 | fully overhead (peak) | **bright** — hat may tilt |
+| `celebrate` F2 | slightly below peak, float | bright |
+
+**Caine face proportions (overrides default §3 shape language for this character):**
+- Face minimum width: ≥10px on a 48×48 frame (standard is ~6–8px).
+- Eyes: 2×2px dots (not 1px) — size reads as personality, not error.
+
+**Prohibitions (Caine-specific):**
+- Wand handle color must be identical across all rows.
+- Orb must not exceed 4×4px on a 48×48 frame.
+- Hat must never be shorter than 10px.
 
 ### Silhouette Rules
 - Head: ~6–8px wide, distinct from body
